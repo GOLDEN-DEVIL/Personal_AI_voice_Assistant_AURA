@@ -48,3 +48,48 @@ def test_inspect_pdf_with_real_pdf(temp_docs_workspace: Path):
 def test_inspect_pdf_traversal_blocked(temp_docs_workspace: Path):
     result = inspect_pdf(temp_docs_workspace, "../../outside.pdf")
     assert "Security Error" in result
+
+
+def test_write_text_file_new_and_overwrite_protection(temp_docs_workspace: Path):
+    from aura.tools.documents import write_text_file
+
+    # Create new file
+    res = write_text_file(temp_docs_workspace, "new_note.txt", "Initial notes content.")
+    assert "Success: Created 'new_note.txt'" in res
+    assert (temp_docs_workspace / "new_note.txt").read_text(encoding="utf-8") == "Initial notes content."
+
+    # Overwrite protection check (should warn and refuse without overwrite flag)
+    res_refusal = write_text_file(temp_docs_workspace, "new_note.txt", "Different content.")
+    assert "Safety Warning: File 'new_note.txt' already exists" in res_refusal
+    assert (temp_docs_workspace / "new_note.txt").read_text(encoding="utf-8") == "Initial notes content."
+
+    # Explicit overwrite
+    res_overwrite = write_text_file(temp_docs_workspace, "new_note.txt", "Overwritten content.", overwrite=True)
+    assert "Success: Created 'new_note.txt'" in res_overwrite
+    assert (temp_docs_workspace / "new_note.txt").read_text(encoding="utf-8") == "Overwritten content."
+
+
+def test_write_text_file_append(temp_docs_workspace: Path):
+    from aura.tools.documents import write_text_file
+
+    write_text_file(temp_docs_workspace, "log.txt", "Line 1")
+    write_text_file(temp_docs_workspace, "log.txt", "Line 2", append=True)
+
+    content = (temp_docs_workspace / "log.txt").read_text(encoding="utf-8")
+    assert "Line 1" in content
+    assert "Line 2" in content
+
+
+def test_write_text_file_security_checks(temp_docs_workspace: Path):
+    from aura.tools.documents import write_text_file
+
+    # Executable / script extension blocked
+    res_exe = write_text_file(temp_docs_workspace, "script.py", "print('malicious')")
+    assert "Security Error: Creating files with extension '.py' is forbidden" in res_exe
+
+    res_bat = write_text_file(temp_docs_workspace, "run.bat", "calc.exe")
+    assert "Security Error: Creating files with extension '.bat' is forbidden" in res_bat
+
+    # Traversal blocked
+    res_traversal = write_text_file(temp_docs_workspace, "../escape.txt", "escape")
+    assert "Security Error" in res_traversal

@@ -36,3 +36,17 @@ This document records key technical decisions, assumptions, and trade-offs made 
 - **Context**: Need to route user queries without risking prompt injection or unauthorized function calls.
 - **Decision**: Use a dictionary-backed allowlist in `CommandRouter`. Check conversational intent using regex patterns to provide informative guidance when online LLMs are not yet hooked up.
 - **Rationale**: Predictable, robust, and zero-overhead execution without relying on an external model to interpret fundamental assistant commands.
+
+---
+
+### Decision 6: Excel Workbook Multi-Sheet Support
+- **Context**: Users need to explore spreadsheet data (`.xlsx`) with multiple sheets without loading giant files into terminal memory.
+- **Decision**: Use `openpyxl` with Pandas `ExcelFile` to inspect available sheets, parse targeted sheets on demand, and bound output previews to top-N rows.
+- **Rationale**: Memory-safe inspection with clear visibility into multi-tab workbooks.
+
+---
+
+### Decision 7: Safe File Writing with Accidental Overwrite Protection
+- **Context**: In Stage 2, users want note-taking and text-file creation within the workspace.
+- **Decision**: Restrict write capabilities to non-executable extensions (`.txt`, `.md`, `.log`, `.csv`, `.json`). If a file already exists, require `--overwrite` or explicit `append` rather than silently replacing content.
+- **Rationale**: Upholds the core security rule that assistant actions must not destroy user data without explicit consent.

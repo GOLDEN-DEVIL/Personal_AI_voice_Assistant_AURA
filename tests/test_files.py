@@ -62,6 +62,15 @@ def test_search_workspace_files(temp_workspace: Path):
     assert "summary.txt" in res
 
 
+def test_search_workspace_files_type_filters(temp_workspace: Path):
+    res_files = search_workspace_files(temp_workspace, "reports --files")
+    assert "No matching items found" in res_files
+
+    res_dirs = search_workspace_files(temp_workspace, "reports --dirs")
+    assert "Found 1 match(es)" in res_dirs
+    assert "[DIR]  reports" in res_dirs
+
+
 def test_search_workspace_files_traversal_blocked(temp_workspace: Path):
     res = search_workspace_files(temp_workspace, "../evil")
     assert "Security Error" in res

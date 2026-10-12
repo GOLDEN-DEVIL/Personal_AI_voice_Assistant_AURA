@@ -60,17 +60,39 @@ def list_workspace_files(workspace_dir: Path, subpath: str = "") -> str:
 
 
 def search_workspace_files(workspace_dir: Path, pattern: str) -> str:
-    """Search for files matching a glob pattern inside the workspace directory."""
-    clean_pattern = pattern.strip()
-    if not clean_pattern:
-        return "Error: Please specify a search pattern (e.g., 'search *.csv' or 'search sample')."
+    """Search for files matching a glob pattern inside the workspace directory.
+
+    Supports optional type filters:
+      search *.csv
+      search sample --files
+      search reports --dirs
+    """
+    clean_input = pattern.strip()
+    if not clean_input:
+        return "Error: Please specify a search pattern (e.g., 'search *.csv' or 'search sample --files')."
 
     # Block directory traversal attempts in search pattern
-    if ".." in clean_pattern or clean_pattern.startswith(("/", "\\")):
+    if ".." in clean_input or clean_input.startswith(("/", "\\")):
         return "Security Error: Search pattern must not contain traversal characters ('..' or absolute paths)."
 
+    tokens = clean_input.split()
+    type_filter = None  # None, "file", or "dir"
+    clean_parts = []
+
+    for token in tokens:
+        if token in ("--files", "--file", "-f"):
+            type_filter = "file"
+        elif token in ("--dirs", "--dir", "-d"):
+            type_filter = "dir"
+        else:
+            clean_parts.append(token)
+
+    query = " ".join(clean_parts).strip()
+    if not query:
+        query = "*"
+
     # If simple text without glob wildcards, search substring
-    glob_pattern = f"*{clean_pattern}*" if not any(c in clean_pattern for c in "*?[]") else clean_pattern
+    glob_pattern = f"*{query}*" if not any(c in query for c in "*?[]") else query
 
     matches: List[Path] = []
     try:
@@ -78,6 +100,10 @@ def search_workspace_files(workspace_dir: Path, pattern: str) -> str:
             try:
                 # Ensure each match is inside workspace
                 validate_workspace_path(p, workspace_dir)
+                if type_filter == "file" and not p.is_file():
+                    continue
+                if type_filter == "dir" and not p.is_dir():
+                    continue
                 matches.append(p)
             except SecurityError:
                 continue
@@ -85,9 +111,11 @@ def search_workspace_files(workspace_dir: Path, pattern: str) -> str:
         return f"Search Error: {err}"
 
     if not matches:
-        return f"No matching files found for pattern: '{clean_pattern}'"
+        filter_msg = f" (filtered by {type_filter})" if type_filter else ""
+        return f"No matching items found for pattern: '{query}'{filter_msg}"
 
-    lines = [f"Found {len(matches)} match(es) for '{clean_pattern}':"]
+    filter_desc = f" [{type_filter}s only]" if type_filter else ""
+    lines = [f"Found {len(matches)} match(es) for '{query}'{filter_desc}:"]
     for match in matches[:40]:
         rel = match.relative_to(workspace_dir)
         tag = "[DIR] " if match.is_dir() else "[FILE]"

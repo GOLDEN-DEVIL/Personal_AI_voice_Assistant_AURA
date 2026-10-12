@@ -8,9 +8,9 @@ from typing import Tuple
 from aura.config import AuraConfig
 from aura.tools.basic import format_help, get_current_date, get_current_time
 from aura.tools.calculator import evaluate_expression
-from aura.tools.documents import inspect_pdf, read_text_file
+from aura.tools.documents import inspect_pdf, read_text_file, write_text_file
 from aura.tools.files import list_workspace_files, search_workspace_files
-from aura.tools.tabular import inspect_csv
+from aura.tools.tabular import inspect_csv, inspect_excel
 
 
 class CommandRouter:
@@ -24,9 +24,12 @@ class CommandRouter:
             "date": "Show current date and day of week",
             "calc <expr>": "Safely compute math (e.g. 'calc (25 * 4) + sqrt(16)')",
             "files [folder]": "List files inside the workspace (or a subfolder)",
-            "search <pattern>": "Search workspace files matching pattern (e.g. 'search *.csv')",
+            "search <pattern>": "Search workspace files matching pattern (e.g. 'search *.csv --files')",
             "read <filename>": "Safely read and preview a text document from workspace",
+            "write <file> <text>": "Safely create a new text file or note in workspace",
+            "append <file> <text>": "Safely append content to an existing text file",
             "csv <filename>": "Inspect CSV structure, columns, and data preview via Pandas",
+            "excel <file> [sheet]": "Inspect Excel spreadsheet workbook and sheet contents via openpyxl",
             "pdf <filename>": "Inspect PDF metadata and page text via PyMuPDF",
             "exit / quit / bye": "Terminate the assistant session",
         }
@@ -73,7 +76,7 @@ class CommandRouter:
         # Workspace File Search
         if command_key in ("search", "find"):
             if not args:
-                return "Usage: search <pattern> (e.g., 'search *.csv' or 'search sample')", False
+                return "Usage: search <pattern> (e.g., 'search *.csv' or 'search notes --files')", False
             return search_workspace_files(self.config.workspace_dir, args), False
 
         # Read Text File
@@ -86,6 +89,50 @@ class CommandRouter:
                 max_chars=self.config.max_preview_chars,
             ), False
 
+        # Write Text File / Note
+        if command_key in ("write", "note", "save"):
+            if not args:
+                return "Usage: write <filename> [--overwrite] <content> (e.g., 'write notes.txt Meeting notes')", False
+            arg_tokens = args.split(maxsplit=2)
+            filename = arg_tokens[0]
+            overwrite = False
+            content = ""
+
+            if len(arg_tokens) > 1 and arg_tokens[1] == "--overwrite":
+                overwrite = True
+                content = arg_tokens[2] if len(arg_tokens) > 2 else ""
+            else:
+                # Content is everything after filename
+                content = args[len(filename):].strip()
+
+            if not content:
+                return f"Error: Content to write cannot be empty. Usage: write {filename} <content>", False
+
+            return write_text_file(
+                self.config.workspace_dir,
+                filename,
+                content,
+                overwrite=overwrite,
+            ), False
+
+        # Append Text File / Note
+        if command_key in ("append", "add"):
+            if not args:
+                return "Usage: append <filename> <content> (e.g., 'append notes.txt New bullet point')", False
+            arg_tokens = args.split(maxsplit=1)
+            filename = arg_tokens[0]
+            content = arg_tokens[1] if len(arg_tokens) > 1 else ""
+
+            if not content:
+                return f"Error: Content to append cannot be empty. Usage: append {filename} <content>", False
+
+            return write_text_file(
+                self.config.workspace_dir,
+                filename,
+                content,
+                append=True,
+            ), False
+
         # CSV Data Inspection
         if command_key in ("csv", "table", "dataframe"):
             if not args:
@@ -93,6 +140,20 @@ class CommandRouter:
             return inspect_csv(
                 self.config.workspace_dir,
                 args,
+                preview_rows=self.config.max_preview_rows,
+            ), False
+
+        # Excel Data Inspection
+        if command_key in ("excel", "xlsx", "sheet", "sheets"):
+            if not args:
+                return "Usage: excel <filename> [sheet] (e.g., 'excel sample.xlsx' or 'excel sales.xlsx Q1')", False
+            arg_tokens = args.split(maxsplit=1)
+            filename = arg_tokens[0]
+            sheet = arg_tokens[1] if len(arg_tokens) > 1 else None
+            return inspect_excel(
+                self.config.workspace_dir,
+                filename,
+                sheet_name=sheet,
                 preview_rows=self.config.max_preview_rows,
             ), False
 

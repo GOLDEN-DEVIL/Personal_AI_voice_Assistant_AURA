@@ -21,11 +21,15 @@ dependencies = [
 pdf = [
     "pymupdf>=1.23.0",
 ]
+excel = [
+    "openpyxl>=3.1.0",
+]
 test = [
     "pytest>=7.0.0",
 ]
 all = [
     "pymupdf>=1.23.0",
+    "openpyxl>=3.1.0",
     "pytest>=7.0.0",
 ]
 

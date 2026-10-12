@@ -72,9 +72,12 @@ AURA >
 | `date` | `date` | Show current date and day of week |
 | `calc <expr>` | `calc (120 * 4) + sqrt(144)` | Safely evaluate arithmetic via AST parser (no `eval`) |
 | `files [subpath]` | `files` or `files subfolder` | List contents of the sandboxed workspace folder |
-| `search <pattern>` | `search *.csv` or `search notes` | Find files within workspace matching a glob pattern |
+| `search <pattern>` | `search *.csv` or `search notes --files` | Find files/folders within workspace with optional `--files` / `--dirs` filter |
 | `read <filename>` | `read notes.txt` | Safely preview text documents with bounded character limits |
+| `write <file> <text>` | `write notes.txt Meeting notes` | Safely create a new text file or note in workspace with overwrite protection |
+| `append <file> <text>` | `append notes.txt New action item` | Safely append content to an existing workspace document |
 | `csv <filename>` | `csv sample.csv` | Inspect CSV column types, dimensions, and top-5 preview |
+| `excel <file> [sheet]` | `excel sample.xlsx Financials` | Inspect Excel workbook sheets, columns, and previews via openpyxl |
 | `pdf <filename>` | `pdf manual.pdf` | Inspect PDF metadata and extracted text (requires `pymupdf`) |
 | `exit` / `quit` / `bye` | `exit` | Terminate session cleanly |
 
@@ -84,9 +87,9 @@ AURA >
 
 - **Zero Arbitrary Execution**: AURA never invokes `eval`, `exec`, or unrestricted shell subprocesses.
 - **AST Mathematical Validation**: Expressions are parsed using `ast.parse` with an allowlist of operators and functions.
-- **Sandboxed Workspace**: File inspection is strictly confined to the directory configured via `AURA_WORKSPACE_DIR` (defaults to `./data`). Path traversal (`../`, absolute drive access) is automatically blocked.
-- **Read-Only MVP**: The assistant cannot overwrite, delete, or upload local files.
-- **Graceful Degradation**: Optional dependencies (such as `pymupdf` for PDFs) provide clear setup instructions instead of crashing.
+- **Sandboxed Workspace**: File inspection and creation are strictly confined to the directory configured via `AURA_WORKSPACE_DIR` (defaults to `./data`). Path traversal (`../`, absolute drive access) is automatically blocked.
+- **Overwrite Protection**: The assistant will not silently replace user files without explicit `--overwrite` or `append`.
+- **Graceful Degradation**: Optional dependencies (such as `openpyxl` or `pymupdf`) provide clear setup instructions instead of crashing.
 
 ---
 
@@ -98,7 +101,7 @@ Run the full pytest suite:
 python -m pytest -v
 ```
 
-All 29 automated unit and security tests will execute:
+All 36 automated unit and security tests will execute:
 - Safe calculator evaluation & boundary rejection
 - Path traversal & workspace boundary containment
 - Tabular CSV schema validation & previews

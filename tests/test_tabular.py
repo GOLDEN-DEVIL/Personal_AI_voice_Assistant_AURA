@@ -42,3 +42,36 @@ def test_inspect_csv_traversal_blocked(temp_csv_workspace: Path):
 def test_inspect_csv_not_found(temp_csv_workspace: Path):
     result = inspect_csv(temp_csv_workspace, "nonexistent.csv")
     assert "was not found" in result
+
+
+def test_inspect_excel_success(tmp_path: Path):
+    import pandas as pd
+    from aura.tools.tabular import inspect_excel
+
+    ws = tmp_path / "data"
+    ws.mkdir()
+    excel_path = ws / "sheet_test.xlsx"
+
+    with pd.ExcelWriter(excel_path, engine="openpyxl") as writer:
+        pd.DataFrame({"Item": ["A", "B"], "Cost": [10, 20]}).to_excel(writer, sheet_name="Alpha", index=False)
+        pd.DataFrame({"User": ["X", "Y"], "Score": [99, 88]}).to_excel(writer, sheet_name="Beta", index=False)
+
+    # Test default first sheet (Alpha)
+    res_default = inspect_excel(ws, "sheet_test.xlsx")
+    assert "Sheet: 'Alpha'" in res_default
+    assert "Available Sheets (2): Alpha, Beta" in res_default
+    assert "Item" in res_default
+
+    # Test named sheet (Beta)
+    res_named = inspect_excel(ws, "sheet_test.xlsx", sheet_name="Beta")
+    assert "Sheet: 'Beta'" in res_named
+    assert "User" in res_named
+    assert "Score" in res_named
+
+    # Test nonexistent sheet error
+    res_missing_sheet = inspect_excel(ws, "sheet_test.xlsx", sheet_name="Gamma")
+    assert "Sheet 'Gamma' not found" in res_missing_sheet
+
+    # Test traversal blocked
+    res_traversal = inspect_excel(ws, "../../evil.xlsx")
+    assert "Security Error" in res_traversal

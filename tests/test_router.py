@@ -58,6 +58,27 @@ def test_router_files_and_csv(router: CommandRouter):
     assert "Dimensions: 1 rows x 2 columns" in resp_csv
 
 
+def test_router_write_and_append(router: CommandRouter):
+    resp_write, _ = router.execute("write todo.txt Buy groceries")
+    assert "Success: Created 'todo.txt'" in resp_write
+
+    resp_append, _ = router.execute("append todo.txt Call Alice")
+    assert "Success: Appended to 'todo.txt'" in resp_append
+
+    resp_read, _ = router.execute("read todo.txt")
+    assert "Buy groceries" in resp_read
+    assert "Call Alice" in resp_read
+
+
+def test_router_excel(router: CommandRouter):
+    import pandas as pd
+    excel_path = router.config.workspace_dir / "demo.xlsx"
+    pd.DataFrame({"X": [1], "Y": [2]}).to_excel(excel_path, engine="openpyxl", index=False)
+
+    resp_excel, _ = router.execute("excel demo.xlsx")
+    assert "Dimensions: 1 rows x 2 columns" in resp_excel
+
+
 def test_router_conversational_fallback(router: CommandRouter):
     queries = [
         "What is the capital of France?",
