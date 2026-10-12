@@ -1,0 +1,40 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "aura-assistant"
+version = "0.1.0"
+description = "Project AURA — AI Utility & Response Assistant"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [
+    { name = "Project AURA Team" }
+]
+dependencies = [
+    "pandas>=2.0.0",
+    "python-dotenv>=1.0.0",
+]
+
+[project.optional-dependencies]
+pdf = [
+    "pymupdf>=1.23.0",
+]
+test = [
+    "pytest>=7.0.0",
+]
+all = [
+    "pymupdf>=1.23.0",
+    "pytest>=7.0.0",
+]
+
+[project.scripts]
+aura = "aura.__main__:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]

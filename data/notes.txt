@@ -1,0 +1,3 @@
+Project AURA — AI Utility & Response Assistant
+Workspace Verification File
+This text file verifies safe read functionality within the configured workspace directory.
