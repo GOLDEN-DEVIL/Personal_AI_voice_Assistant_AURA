@@ -12,9 +12,10 @@ A modular, secure, and extensible desktop command & voice assistant foundation w
 
 ### Installation
 
-1. Clone or navigate to the project directory:
+1. Clone the repository and navigate into the project directory:
    ```bash
-   cd c:\vscodeing\PROJECT_SEM_3\AI_voice_assistant_AURA
+   git clone https://github.com/GOLDEN-DEVIL/Personal_AI_voice_Assistant_AURA.git
+   cd Personal_AI_voice_Assistant_AURA
    ```
 
 2. (Optional) Create and activate a virtual environment:
@@ -52,7 +53,7 @@ You will be greeted by the AURA banner:
   Project AURA - AI Utility & Response Assistant
   Version: 0.1.0 | Mode: Local MVP
 ======================================================
-  Workspace: C:\vscodeing\PROJECT_SEM_3\AI_voice_assistant_AURA\data
+  Workspace: ./data
   Status   : Ready for input
   Hint     : Type 'help' for commands, 'exit' to quit.
 ------------------------------------------------------
@@ -97,7 +98,7 @@ Run the full pytest suite:
 python -m pytest -v
 ```
 
-All 25 automated unit and security tests will execute:
+All 29 automated unit and security tests will execute:
 - Safe calculator evaluation & boundary rejection
 - Path traversal & workspace boundary containment
 - Tabular CSV schema validation & previews
