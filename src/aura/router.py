@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 import re
-from typing import Tuple
+from typing import Optional, Tuple
 
+from aura.audio.tts import TextToSpeechEngine
 from aura.config import AuraConfig
 from aura.tools.basic import format_help, get_current_date, get_current_time
 from aura.tools.calculator import evaluate_expression
@@ -16,8 +17,13 @@ from aura.tools.tabular import inspect_csv, inspect_excel
 class CommandRouter:
     """Routes user input to allowlisted local tools or safe fallbacks."""
 
-    def __init__(self, config: AuraConfig) -> None:
+    def __init__(
+        self,
+        config: AuraConfig,
+        tts_engine: Optional[TextToSpeechEngine] = None,
+    ) -> None:
         self.config = config
+        self.tts = tts_engine
         self.command_help: dict[str, str] = {
             "help": "Display this help menu with all available commands",
             "time": "Show current local time and timezone",
@@ -31,6 +37,8 @@ class CommandRouter:
             "csv <filename>": "Inspect CSV structure, columns, and data preview via Pandas",
             "excel <file> [sheet]": "Inspect Excel spreadsheet workbook and sheet contents via openpyxl",
             "pdf <filename>": "Inspect PDF metadata and page text via PyMuPDF",
+            "voice [on|off]": "Toggle or check spoken audio responses (Text-to-Speech)",
+            "listen": "Activate push-to-talk microphone to speak your command",
             "exit / quit / bye": "Terminate the assistant session",
         }
 
@@ -166,6 +174,38 @@ class CommandRouter:
                 args,
                 max_chars=self.config.max_preview_chars,
             ), False
+
+        # Voice Output (TTS) Controls
+        if command_key in ("voice", "tts"):
+            sub_cmd = args.strip().lower()
+            if sub_cmd in ("on", "enable", "start", "1"):
+                if self.tts:
+                    self.tts.set_enabled(True)
+                    return "Voice output (Text-to-Speech) is now ENABLED.", False
+                return "Voice output engine is not initialized in this session.", False
+            elif sub_cmd in ("off", "disable", "stop", "0"):
+                if self.tts:
+                    self.tts.set_enabled(False)
+                    return "Voice output (Text-to-Speech) is now DISABLED.", False
+                return "Voice output engine is not initialized in this session.", False
+            elif sub_cmd in ("status", ""):
+                state = "ENABLED" if (self.tts and self.tts.enabled) else "DISABLED"
+                avail = "available" if (self.tts and self.tts.available) else "unavailable"
+                return (
+                    f"Voice output (TTS) is currently {state} (audio driver: {avail}).\n"
+                    "Use 'voice on' or 'voice off' to toggle spoken responses.",
+                    False,
+                )
+            else:
+                return "Usage: voice [on|off|status] or tts [on|off|status]", False
+
+        # Push-to-Talk Command
+        if command_key in ("listen", "ptt", "mic"):
+            return (
+                "Push-to-talk microphone trigger received.\n"
+                "(In the interactive terminal session, typing 'listen' activates the microphone).",
+                False,
+            )
 
         # Conversational / AI fallback check
         if self._is_conversational(trimmed):

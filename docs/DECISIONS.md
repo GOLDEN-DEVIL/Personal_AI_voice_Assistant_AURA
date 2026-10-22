@@ -50,3 +50,17 @@ This document records key technical decisions, assumptions, and trade-offs made 
 - **Context**: In Stage 2, users want note-taking and text-file creation within the workspace.
 - **Decision**: Restrict write capabilities to non-executable extensions (`.txt`, `.md`, `.log`, `.csv`, `.json`). If a file already exists, require `--overwrite` or explicit `append` rather than silently replacing content.
 - **Rationale**: Upholds the core security rule that assistant actions must not destroy user data without explicit consent.
+
+---
+
+### Decision 8: Offline Text-to-Speech (TTS) with Speech Filtering
+- **Context**: Users want voice responses spoken aloud without relying on external cloud APIs or high network latency.
+- **Decision**: Use `pyttsx3` operating over native OS speech synthesizers (`sapi5` on Windows). Implement a regex speech sanitizer (`clean_text_for_speech`) that filters out ASCII dividers, table borders, and truncates lengthy text before passing to the audio engine.
+- **Rationale**: Guarantees zero cloud cost, 100% offline privacy, and natural spoken output that avoids reading raw table borders aloud.
+
+---
+
+### Decision 9: Push-to-Talk Speech Recognition with Zero Audio Retention
+- **Context**: Voice input is needed while preserving keyboard fallback and strict user privacy.
+- **Decision**: Use push-to-talk speech recognition activated by user command (`listen`). Never record, stream, or retain audio to local disk files.
+- **Rationale**: Complies directly with Section 7 security and privacy rules while avoiding constant, silent background listening.

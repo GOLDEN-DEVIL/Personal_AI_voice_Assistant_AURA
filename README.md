@@ -79,6 +79,8 @@ AURA >
 | `csv <filename>` | `csv sample.csv` | Inspect CSV column types, dimensions, and top-5 preview |
 | `excel <file> [sheet]` | `excel sample.xlsx Financials` | Inspect Excel workbook sheets, columns, and previews via openpyxl |
 | `pdf <filename>` | `pdf manual.pdf` | Inspect PDF metadata and extracted text (requires `pymupdf`) |
+| `voice [on|off]` | `voice on` or `voice off` | Toggle spoken audio responses via offline Text-to-Speech (TTS) |
+| `listen` | `listen` | Activate push-to-talk microphone to speak your command |
 | `exit` / `quit` / `bye` | `exit` | Terminate session cleanly |
 
 ---
@@ -88,8 +90,9 @@ AURA >
 - **Zero Arbitrary Execution**: AURA never invokes `eval`, `exec`, or unrestricted shell subprocesses.
 - **AST Mathematical Validation**: Expressions are parsed using `ast.parse` with an allowlist of operators and functions.
 - **Sandboxed Workspace**: File inspection and creation are strictly confined to the directory configured via `AURA_WORKSPACE_DIR` (defaults to `./data`). Path traversal (`../`, absolute drive access) is automatically blocked.
+- **Zero Audio Retention (Privacy First)**: Speech recognition operates purely in-memory on push-to-talk (`listen`). AURA **never** records, streams, or saves microphone audio files to disk.
 - **Overwrite Protection**: The assistant will not silently replace user files without explicit `--overwrite` or `append`.
-- **Graceful Degradation**: Optional dependencies (such as `openpyxl` or `pymupdf`) provide clear setup instructions instead of crashing.
+- **Graceful Degradation**: Optional dependencies (such as `pyttsx3`, `pyaudio`, `openpyxl`, or `pymupdf`) provide clear setup instructions instead of crashing.
 
 ---
 
@@ -101,11 +104,13 @@ Run the full pytest suite:
 python -m pytest -v
 ```
 
-All 36 automated unit and security tests will execute:
+All 45 automated unit and security tests will execute:
 - Safe calculator evaluation & boundary rejection
+- Text-to-Speech text sanitization & speech engine controls
+- Speech-to-Text mock transcription and hardware error handling
 - Path traversal & workspace boundary containment
-- Tabular CSV schema validation & previews
-- Command routing & conversational fallbacks
+- Tabular CSV & multi-sheet Excel schema validations
+- Command routing, voice controls, & conversational fallbacks
 
 ---
 

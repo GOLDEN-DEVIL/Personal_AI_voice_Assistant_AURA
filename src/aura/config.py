@@ -25,6 +25,11 @@ class AuraConfig:
     log_level: str
     max_preview_rows: int = 5
     max_preview_chars: int = 2000
+    tts_enabled: bool = False
+    tts_rate: int = 180
+    tts_volume: float = 0.9
+    stt_timeout: int = 5
+    stt_phrase_limit: int = 10
 
     @classmethod
     def load(cls) -> AuraConfig:
@@ -32,6 +37,17 @@ class AuraConfig:
         app_name = os.getenv("AURA_APP_NAME", "AURA")
         version = os.getenv("AURA_VERSION", "0.1.0")
         log_level = os.getenv("AURA_LOG_LEVEL", "INFO").upper()
+
+        tts_enabled = os.getenv("AURA_TTS_ENABLED", "false").lower() in ("true", "1", "yes")
+        try:
+            tts_rate = int(os.getenv("AURA_TTS_RATE", "180"))
+        except ValueError:
+            tts_rate = 180
+
+        try:
+            tts_volume = float(os.getenv("AURA_TTS_VOLUME", "0.9"))
+        except ValueError:
+            tts_volume = 0.9
 
         # Locate project root (assuming src/aura/config.py -> root is 3 levels up)
         project_root = Path(__file__).resolve().parent.parent.parent
@@ -50,4 +66,7 @@ class AuraConfig:
             version=version,
             workspace_dir=workspace_path,
             log_level=log_level,
+            tts_enabled=tts_enabled,
+            tts_rate=tts_rate,
+            tts_volume=tts_volume,
         )
