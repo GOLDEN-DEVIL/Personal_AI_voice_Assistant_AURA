@@ -18,7 +18,7 @@ This document tracks completed milestones, branch status, and immediate next ste
 - Safe note and text file creation (`write` and `append`) with accidental overwrite protection and safe extension enforcement (`.txt`, `.md`, `.log`, `.csv`, `.json`).
 - Type-filtered workspace searches (`search <pattern> [--files|--dirs]`).
 
-### Stage 3: Voice Output & Push-to-Talk Input (Branch `TEST_STAGE_3`)
+### Stage 3: Voice Output & Push-to-Talk Input (Merged into `main`)
 - **Offline Text-to-Speech (TTS)** ([`src/aura/audio/tts.py`](../src/aura/audio/tts.py)):
   - Zero-latency native speech synthesis via `pyttsx3` (`sapi5` on Windows).
   - Speech sanitizer (`clean_text_for_speech`) that filters ASCII table borders, markdown lines, and bounds recitation length.
