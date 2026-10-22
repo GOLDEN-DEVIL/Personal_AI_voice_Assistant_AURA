@@ -79,7 +79,7 @@ AURA >
 | `csv <filename>` | `csv sample.csv` | Inspect CSV column types, dimensions, and top-5 preview |
 | `excel <file> [sheet]` | `excel sample.xlsx Financials` | Inspect Excel workbook sheets, columns, and previews via openpyxl |
 | `pdf <filename>` | `pdf manual.pdf` | Inspect PDF metadata and extracted text (requires `pymupdf`) |
-| `voice [on|off]` | `voice on` or `voice off` | Toggle spoken audio responses via offline Text-to-Speech (TTS) |
+| `voice [on/off]` | `voice on` or `voice off` | Toggle spoken audio responses via offline Text-to-Speech (TTS) |
 | `listen` | `listen` | Activate push-to-talk microphone to speak your command |
 | `exit` / `quit` / `bye` | `exit` | Terminate session cleanly |
 

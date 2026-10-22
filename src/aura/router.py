@@ -37,7 +37,7 @@ class CommandRouter:
             "csv <filename>": "Inspect CSV structure, columns, and data preview via Pandas",
             "excel <file> [sheet]": "Inspect Excel spreadsheet workbook and sheet contents via openpyxl",
             "pdf <filename>": "Inspect PDF metadata and page text via PyMuPDF",
-            "voice [on|off]": "Toggle or check spoken audio responses (Text-to-Speech)",
+            "voice [on/off]": "Toggle or check spoken audio responses (Text-to-Speech)",
             "listen": "Activate push-to-talk microphone to speak your command",
             "exit / quit / bye": "Terminate the assistant session",
         }
