@@ -51,3 +51,15 @@ def test_security_arbitrary_code_injection_blocked():
 def test_empty_and_syntax_error():
     assert "Error:" in evaluate_expression("")
     assert "Syntax Error:" in evaluate_expression("2 +* 5")
+
+
+def test_verbal_math_expressions():
+    assert evaluate_expression("5 times 5") == "Result: 25"
+    assert evaluate_expression("5 into 5") == "Result: 25"
+    assert evaluate_expression("5 x 5") == "Result: 25"
+    assert evaluate_expression("10 plus 15") == "Result: 25"
+    assert evaluate_expression("30 minus 5") == "Result: 25"
+    assert evaluate_expression("100 divided by 4") == "Result: 25"
+    assert evaluate_expression("5 squared") == "Result: 25"
+    assert evaluate_expression("2 to the power of 5") == "Result: 32"
+

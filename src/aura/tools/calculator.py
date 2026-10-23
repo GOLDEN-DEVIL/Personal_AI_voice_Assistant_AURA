@@ -10,6 +10,7 @@ from __future__ import annotations
 import ast
 import math
 import operator
+import re
 from typing import Any, Callable
 
 # Allowed binary operators
@@ -113,12 +114,38 @@ def _eval_node(node: ast.AST) -> float | int:
     raise CalculatorError(f"Disallowed expression syntax: {type(node).__name__}")
 
 
+def normalize_verbal_expression(expr: str) -> str:
+    """Normalize spoken English arithmetic phrases into standard math symbols.
+
+    Converts phrases like '5 times 5', '10 divided by 2', '5 x 5', '4 into 6',
+    '3 squared' into valid Python syntax before AST parsing.
+    """
+    cleaned = expr.strip()
+    replacements: list[tuple[str, str]] = [
+        (r"\bmultiplied\s+by\b", "*"),
+        (r"\btimes\b", "*"),
+        (r"\binto\b", "*"),
+        (r"\bdivided\s+by\b", "/"),
+        (r"\bover\b", "/"),
+        (r"\bplus\b", "+"),
+        (r"\bminus\b", "-"),
+        (r"\bto\s+the\s+power\s+of\b", "**"),
+        (r"\bsquared\b", "** 2"),
+        (r"\bcubed\b", "** 3"),
+        (r"(?<=\d)\s*[xX]\s*(?=\d)", " * "),
+        (r"\b[xX]\b", "*"),
+    ]
+    for pattern, replacement in replacements:
+        cleaned = re.sub(pattern, replacement, cleaned, flags=re.IGNORECASE)
+    return cleaned
+
+
 def evaluate_expression(expression: str) -> str:
     """Safely parse and calculate a mathematical expression string.
 
     Returns a friendly string representation of the result or error.
     """
-    expr_clean = expression.strip()
+    expr_clean = normalize_verbal_expression(expression)
     if not expr_clean:
         return "Error: Please provide a mathematical expression (e.g., 'calc 42 * 2' or 'calc sqrt(16)')."
 
