@@ -9,6 +9,7 @@ from aura.audio.stt import SpeechToTextListener
 from aura.audio.tts import TextToSpeechEngine
 from aura.config import AuraConfig
 from aura.logging_config import setup_logging
+from aura.providers.factory import create_llm_provider
 from aura.router import CommandRouter
 
 
@@ -27,12 +28,21 @@ class AuraApp:
             timeout=self.config.stt_timeout,
             phrase_time_limit=self.config.stt_phrase_limit,
         )
-        self.router = CommandRouter(self.config, tts_engine=self.tts)
+        self.llm = create_llm_provider(self.config)
+        self.router = CommandRouter(
+            self.config,
+            tts_engine=self.tts,
+            llm_provider=self.llm,
+        )
 
     def print_banner(self) -> None:
         """Display startup information, workspace, and voice status."""
         tts_state = "ON" if self.tts.enabled else "OFF"
         stt_state = "READY (type 'listen')" if self.stt.available else "UNAVAILABLE"
+        if self.llm and self.llm.is_available():
+            ai_state = f"{self.llm.get_provider_name()} ({self.llm.get_model_name()})"
+        else:
+            ai_state = "LOCAL ONLY (set GEMINI_API_KEY in .env)"
 
         banner = f"""
 ======================================================
@@ -42,6 +52,7 @@ class AuraApp:
   Workspace  : {self.config.workspace_dir}
   Voice TTS  : [{tts_state}] (use 'voice on' / 'voice off')
   Voice PTT  : [{stt_state}]
+  Online AI  : [{ai_state}]
   Hint       : Type 'help' for commands, 'exit' to quit.
 ------------------------------------------------------
 """

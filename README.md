@@ -81,6 +81,7 @@ AURA >
 | `pdf <filename>` | `pdf manual.pdf` | Inspect PDF metadata and extracted text (requires `pymupdf`) |
 | `voice [on/off]` | `voice on` or `voice off` | Toggle spoken audio responses via offline Text-to-Speech (TTS) |
 | `listen` | `listen` | Activate push-to-talk microphone to speak your command |
+| `ask <question>` | `ask what is quantum computing?` | Query Google Gemini conversational AI (requires `GEMINI_API_KEY`) |
 | `exit` / `quit` / `bye` | `exit` | Terminate session cleanly |
 
 ---

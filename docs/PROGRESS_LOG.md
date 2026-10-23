@@ -33,7 +33,24 @@ This document tracks completed milestones, branch status, and immediate next ste
 
 ---
 
-## Next Milestone: Stage 4 — Online AI Provider Integration
-- Configurable LLM provider interface (`src/aura/providers/`).
-- Connect cloud model (e.g., Google Gemini API, Groq, or local Ollama).
-- Clear fallback to local tools if network or API keys are unavailable.
+### Stage 4: Online AI Provider Integration (Branch `TEST_STAGE_4`)
+- **Pluggable Provider Architecture** ([`src/aura/providers/base.py`](../src/aura/providers/base.py)):
+  - Abstract `BaseLLMProvider` interface defining availability checks, model identification, and response generation.
+- **Google Gemini Provider** ([`src/aura/providers/gemini.py`](../src/aura/providers/gemini.py)):
+  - Built-in HTTPS REST interface using Python standard library `urllib.request` (zero third-party package friction).
+  - Configurable models (`gemini-1.5-flash`, `gemini-2.0-flash`) via `AURA_AI_MODEL`.
+  - Automatic error handling for missing keys, HTTP 403 (invalid key), HTTP 429 (rate limits/quota), and network outages.
+- **Router & CLI Integration** ([`src/aura/router.py`](../src/aura/router.py), [`src/aura/app.py`](../src/aura/app.py)):
+  - `ask <prompt>` / `ai <prompt>` explicit query commands.
+  - Conversational routing that forwards natural questions to Gemini when configured.
+  - Local tools (`calc`, `files`, `excel`, `pdf`, `voice`) remain 100% operational when offline or unauthenticated.
+  - Live AI status indicator in terminal startup banner.
+- **Automated Tests**: 55 unit and security tests passing.
+
+---
+
+## Next Milestone: Stage 5 — Provider-Based Web Search
+- Web search provider tool returning concise source titles and links.
+- Clearly separate retrieved search text from assistant reasoning.
+- Treat untrusted web results with prompt injection safeguards.
+

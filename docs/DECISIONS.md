@@ -64,3 +64,10 @@ This document records key technical decisions, assumptions, and trade-offs made 
 - **Context**: Voice input is needed while preserving keyboard fallback and strict user privacy.
 - **Decision**: Use push-to-talk speech recognition activated by user command (`listen`). Never record, stream, or retain audio to local disk files.
 - **Rationale**: Complies directly with Section 7 security and privacy rules while avoiding constant, silent background listening.
+
+---
+
+### Decision 10: Pluggable Online AI Architecture with Standard Library HTTPS
+- **Context**: Stage 4 introduces cloud LLMs for answering freeform conversational questions. We need support for Google Gemini without fragile package compilation or heavy third-party dependencies.
+- **Decision**: Implemented `BaseLLMProvider` interface and `GeminiProvider` using Python's standard library `urllib.request` over the official Gemini REST API (`generateContent`).
+- **Rationale**: Zero external package friction on Python 3.13, no complex build wheels, fast HTTPS calls, and robust error handling for missing keys, HTTP 403, and HTTP 429 quota exhaustion while preserving local tools.

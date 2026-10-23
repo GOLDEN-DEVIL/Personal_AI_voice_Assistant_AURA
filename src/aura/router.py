@@ -7,6 +7,7 @@ from typing import Optional, Tuple
 
 from aura.audio.tts import TextToSpeechEngine
 from aura.config import AuraConfig
+from aura.providers.base import BaseLLMProvider
 from aura.tools.basic import format_help, get_current_date, get_current_time
 from aura.tools.calculator import evaluate_expression
 from aura.tools.documents import inspect_pdf, read_text_file, write_text_file
@@ -21,9 +22,11 @@ class CommandRouter:
         self,
         config: AuraConfig,
         tts_engine: Optional[TextToSpeechEngine] = None,
+        llm_provider: Optional[BaseLLMProvider] = None,
     ) -> None:
         self.config = config
         self.tts = tts_engine
+        self.llm = llm_provider
         self.command_help: dict[str, str] = {
             "help": "Display this help menu with all available commands",
             "time": "Show current local time and timezone",
@@ -39,6 +42,7 @@ class CommandRouter:
             "pdf <filename>": "Inspect PDF metadata and page text via PyMuPDF",
             "voice [on/off]": "Toggle or check spoken audio responses (Text-to-Speech)",
             "listen": "Activate push-to-talk microphone to speak your command",
+            "ask <question>": "Ask conversational AI anything (requires GEMINI_API_KEY in .env)",
             "exit / quit / bye": "Terminate the assistant session",
         }
 
@@ -207,13 +211,28 @@ class CommandRouter:
                 False,
             )
 
+        # Explicit AI Ask Command
+        if command_key in ("ask", "ai", "gemini"):
+            if not args:
+                return "Usage: ask <your question or prompt> (e.g. 'ask explain photosynthesis in 2 sentences')", False
+            if self.llm:
+                return self.llm.generate_response(args), False
+            return (
+                "AI Notice: Online AI provider is not enabled.\n"
+                "Please configure GEMINI_API_KEY in your .env file to enable AI answers.",
+                False,
+            )
+
         # Conversational / AI fallback check
         if self._is_conversational(trimmed):
+            if self.llm and self.llm.is_available():
+                return self.llm.generate_response(trimmed), False
             return (
-                "AURA is currently operating in local-only mode (Stage 1 MVP).\n"
-                "Online AI and cloud language models are not configured yet.\n"
-                "Local features (files, calculation, CSV preview, date/time) are fully active.\n"
-                "Type 'help' to see what I can do locally.",
+                "AURA is currently operating in local-only mode.\n"
+                "To enable online conversational AI, add your API key to .env:\n"
+                "  GEMINI_API_KEY=your_gemini_api_key_here\n"
+                "(Get a free key at https://aistudio.google.com/app/apikey).\n"
+                "Type 'help' to see available local tools.",
                 False,
             )
 
