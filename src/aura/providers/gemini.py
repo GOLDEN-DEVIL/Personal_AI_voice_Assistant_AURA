@@ -22,7 +22,8 @@ DEFAULT_SYSTEM_PROMPT = (
 class GeminiProvider(BaseLLMProvider):
     """Google Gemini AI provider using standard HTTPS REST calls."""
 
-    BASE_URL = "https://generativelanguage.googleapis.com/v1beta/models"
+    BASE_URL_APIKEY = "https://generativelanguage.googleapis.com/v1beta/models"
+    BASE_URL_OAUTH = "https://generativelanguage.googleapis.com/v1/models"
 
     def __init__(
         self,
@@ -60,7 +61,19 @@ class GeminiProvider(BaseLLMProvider):
         if not trimmed:
             return "Please provide a query or question for the AI."
 
-        url = f"{self.BASE_URL}/{self.model_name}:generateContent?key={self.api_key}"
+        # AQ. prefix = OAuth 2.0 Bearer token → use Authorization header + v1 endpoint
+        # AIzaSy... = standard API key → use ?key= query param + v1beta endpoint
+        is_bearer = self.api_key.startswith("AQ.")
+
+        if is_bearer:
+            url = f"{self.BASE_URL_OAUTH}/{self.model_name}:generateContent"
+            headers = {
+                "Content-Type": "application/json",
+                "Authorization": f"Bearer {self.api_key}",
+            }
+        else:
+            url = f"{self.BASE_URL_APIKEY}/{self.model_name}:generateContent?key={self.api_key}"
+            headers = {"Content-Type": "application/json"}
 
         payload = {
             "contents": [
@@ -82,7 +95,7 @@ class GeminiProvider(BaseLLMProvider):
         req = urllib.request.Request(
             url,
             data=data,
-            headers={"Content-Type": "application/json"},
+            headers=headers,
             method="POST",
         )
 
@@ -104,9 +117,18 @@ class GeminiProvider(BaseLLMProvider):
 
         except urllib.error.HTTPError as err:
             logger.error("Gemini API HTTP error %d: %s", err.code, err.reason)
+            detail = ""
+            try:
+                raw_body = err.read().decode("utf-8")
+                err_json = json.loads(raw_body)
+                detail = err_json.get("error", {}).get("message", "")
+            except Exception:
+                detail = ""
+
             if err.code in (400, 403):
+                detail_msg = f"\nDetails: {detail}" if detail else ""
                 return (
-                    f"AI Authentication Error (HTTP {err.code}): The provided GEMINI_API_KEY appears invalid or unauthorized.\n"
+                    f"AI Authentication Error (HTTP {err.code}): The provided GEMINI_API_KEY appears invalid or unauthorized.{detail_msg}\n"
                     "Please verify your key in .env or create a new one at https://aistudio.google.com/app/apikey"
                 )
             if err.code == 429:
@@ -114,7 +136,8 @@ class GeminiProvider(BaseLLMProvider):
                     "AI Rate Limit (HTTP 429): Free tier quota or rate limit exceeded.\n"
                     "Please wait a moment before asking another question."
                 )
-            return f"AI Service Error (HTTP {err.code}): {err.reason}. Please try again later."
+            detail_msg = f" ({detail})" if detail else f": {err.reason}"
+            return f"AI Service Error (HTTP {err.code}){detail_msg}. Please try again later."
 
         except urllib.error.URLError as err:
             logger.warning("Network connection failed during Gemini API call: %s", err.reason)
