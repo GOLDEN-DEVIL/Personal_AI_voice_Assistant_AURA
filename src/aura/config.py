@@ -31,9 +31,10 @@ class AuraConfig:
     tts_volume: float = 0.9
     stt_timeout: int = 5
     stt_phrase_limit: int = 10
-    ai_provider: str = "gemini"
+    ai_provider: str = "nvidia"
     gemini_api_key: Optional[str] = None
-    ai_model: str = "gemini-1.5-flash"
+    nvidia_api_key: Optional[str] = None
+    ai_model: str = "nvidia/llama-3.1-nemotron-nano-8b-v1"
     ai_system_prompt: str = (
         "You are AURA (AI Utility & Response Assistant), a polite, concise, and helpful personal voice assistant. "
         "Provide clear, direct answers under 3-4 sentences when possible."
@@ -58,9 +59,10 @@ class AuraConfig:
             tts_volume = 0.9
 
         # AI Provider configuration (Stage 4)
-        ai_provider = os.getenv("AURA_AI_PROVIDER", "gemini").lower().strip()
-        gemini_api_key = os.getenv("GEMINI_API_KEY") or os.getenv("AURA_AI_API_KEY")
-        ai_model = os.getenv("AURA_AI_MODEL", "gemini-1.5-flash").strip()
+        ai_provider = os.getenv("AURA_AI_PROVIDER", "nvidia").lower().strip()
+        gemini_api_key = os.getenv("GEMINI_API_KEY") or None
+        nvidia_api_key = os.getenv("NVIDIA_API_KEY") or os.getenv("AURA_AI_API_KEY") or None
+        ai_model = os.getenv("AURA_AI_MODEL", "nvidia/llama-3.1-nemotron-nano-8b-v1").strip()
         ai_system_prompt = os.getenv(
             "AURA_AI_SYSTEM_PROMPT",
             "You are AURA (AI Utility & Response Assistant), a polite, concise, and helpful personal voice assistant. "
@@ -89,6 +91,7 @@ class AuraConfig:
             tts_volume=tts_volume,
             ai_provider=ai_provider,
             gemini_api_key=gemini_api_key,
+            nvidia_api_key=nvidia_api_key,
             ai_model=ai_model,
             ai_system_prompt=ai_system_prompt,
         )
