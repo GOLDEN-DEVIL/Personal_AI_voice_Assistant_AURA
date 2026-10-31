@@ -42,7 +42,7 @@ class CommandRouter:
             "pdf <filename>": "Inspect PDF metadata and page text via PyMuPDF",
             "voice [on/off]": "Toggle or check spoken audio responses (Text-to-Speech)",
             "listen": "Activate push-to-talk microphone to speak your command",
-            "ask <question>": "Ask conversational AI anything (requires GEMINI_API_KEY in .env)",
+            "ask <question>": "Ask conversational AI anything (requires NVIDIA_API_KEY in .env)",
             "exit / quit / bye": "Terminate the assistant session",
         }
 
@@ -212,14 +212,14 @@ class CommandRouter:
             )
 
         # Explicit AI Ask Command
-        if command_key in ("ask", "ai", "gemini"):
+        if command_key in ("ask", "ai", "nvidia", "nim", "gemini"):
             if not args:
                 return "Usage: ask <your question or prompt> (e.g. 'ask explain photosynthesis in 2 sentences')", False
             if self.llm:
                 return self.llm.generate_response(args), False
             return (
                 "AI Notice: Online AI provider is not enabled.\n"
-                "Please configure GEMINI_API_KEY in your .env file to enable AI answers.",
+                "Please configure NVIDIA_API_KEY in your .env file to enable AI answers.",
                 False,
             )
 
@@ -230,8 +230,8 @@ class CommandRouter:
             return (
                 "AURA is currently operating in local-only mode.\n"
                 "To enable online conversational AI, add your API key to .env:\n"
-                "  GEMINI_API_KEY=your_gemini_api_key_here\n"
-                "(Get a free key at https://aistudio.google.com/app/apikey).\n"
+                "  NVIDIA_API_KEY=nvapi-your_key_here\n"
+                "(Get a free key at https://build.nvidia.com).\n"
                 "Type 'help' to see available local tools.",
                 False,
             )

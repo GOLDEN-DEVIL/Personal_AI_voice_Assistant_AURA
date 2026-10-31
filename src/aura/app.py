@@ -42,7 +42,7 @@ class AuraApp:
         if self.llm and self.llm.is_available():
             ai_state = f"{self.llm.get_provider_name()} ({self.llm.get_model_name()})"
         else:
-            ai_state = "LOCAL ONLY (set GEMINI_API_KEY in .env)"
+            ai_state = "LOCAL ONLY (set NVIDIA_API_KEY in .env)"
 
         banner = f"""
 ======================================================

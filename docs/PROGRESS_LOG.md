@@ -36,16 +36,20 @@ This document tracks completed milestones, branch status, and immediate next ste
 ### Stage 4: Online AI Provider Integration (Branch `TEST_STAGE_4`)
 - **Pluggable Provider Architecture** ([`src/aura/providers/base.py`](../src/aura/providers/base.py)):
   - Abstract `BaseLLMProvider` interface defining availability checks, model identification, and response generation.
-- **Google Gemini Provider** ([`src/aura/providers/gemini.py`](../src/aura/providers/gemini.py)):
-  - Built-in HTTPS REST interface using Python standard library `urllib.request` (zero third-party package friction).
-  - Configurable models (`gemini-1.5-flash`, `gemini-2.0-flash`) via `AURA_AI_MODEL`.
-  - Automatic error handling for missing keys, HTTP 403 (invalid key), HTTP 429 (rate limits/quota), and network outages.
+- **NVIDIA NIM Provider — Primary** ([`src/aura/providers/nvidia.py`](../src/aura/providers/nvidia.py)):
+  - OpenAI-compatible Chat Completions REST API over standard `urllib.request` (zero SDK dependencies).
+  - Authenticated via `NVIDIA_API_KEY` (`Bearer nvapi-...`).
+  - Default model: `nvidia/nemotron-3.5-bolt-e4b` (sub-second 0.32s ultra-low latency).
+  - Comprehensive error handling: HTTP 401 (auth), HTTP 404 (account function routing), HTTP 410 (end-of-life deprecation), and HTTP 429 (rate limiting).
+- **Google Gemini Provider — Fallback** ([`src/aura/providers/gemini.py`](../src/aura/providers/gemini.py)):
+  - Direct HTTPS REST interface supporting both API keys and OAuth tokens.
+  - Configurable via `AURA_AI_PROVIDER=gemini` and `GEMINI_API_KEY`.
 - **Router & CLI Integration** ([`src/aura/router.py`](../src/aura/router.py), [`src/aura/app.py`](../src/aura/app.py)):
-  - `ask <prompt>` / `ai <prompt>` explicit query commands.
-  - Conversational routing that forwards natural questions to Gemini when configured.
+  - `ask <prompt>` / `ai <prompt>` / `nvidia <prompt>` explicit query commands.
+  - Conversational routing that forwards natural questions to the active LLM provider.
   - Local tools (`calc`, `files`, `excel`, `pdf`, `voice`) remain 100% operational when offline or unauthenticated.
   - Live AI status indicator in terminal startup banner.
-- **Automated Tests**: 55 unit and security tests passing.
+- **Automated Tests**: 65 unit and security tests passing.
 
 ---
 
@@ -53,4 +57,3 @@ This document tracks completed milestones, branch status, and immediate next ste
 - Web search provider tool returning concise source titles and links.
 - Clearly separate retrieved search text from assistant reasoning.
 - Treat untrusted web results with prompt injection safeguards.
-
