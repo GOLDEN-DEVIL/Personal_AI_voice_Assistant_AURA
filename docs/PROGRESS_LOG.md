@@ -33,7 +33,7 @@ This document tracks completed milestones, branch status, and immediate next ste
 
 ---
 
-### Stage 4: Online AI Provider Integration (Branch `TEST_STAGE_4`)
+### Stage 4: Online AI Provider Integration (Merged into `main`)
 - **Pluggable Provider Architecture** ([`src/aura/providers/base.py`](../src/aura/providers/base.py)):
   - Abstract `BaseLLMProvider` interface defining availability checks, model identification, and response generation.
 - **NVIDIA NIM Provider — Primary** ([`src/aura/providers/nvidia.py`](../src/aura/providers/nvidia.py)):

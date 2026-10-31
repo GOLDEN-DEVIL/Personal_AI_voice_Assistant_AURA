@@ -4,56 +4,59 @@ This document describes the high-level architecture, component boundaries, and r
 
 ## 1. Architectural Overview
 
-AURA is organized into loosely coupled, modular layers designed to keep the user interface separate from core tooling and safety logic.
+AURA is organized into loosely coupled, modular layers designed to keep the user interface separate from core tooling, audio pipelines, AI providers, and safety logic.
 
 ```
-       +---------------------------------------------+
-       |           User Interface Layer              |
-       |  - CLI REPL (`aura.app`)                    |
-       |  - Future: Speech / Audio Adapter           |
-       +---------------------------------------------+
-                              |
-                              v
-       +---------------------------------------------+
-       |         Routing & Intent Layer              |
-       |  - `CommandRouter` (`aura.router`)          |
-       |  - Allowlist Verification                   |
-       |  - Conversational Fallback Detector         |
-       +---------------------------------------------+
-                              |
-                              v
-       +---------------------------------------------+
-       |            Safety Enforcement               |
-       |  - `validate_workspace_path` (`aura.safety`)|
-       |  - Path Traversal Shield                    |
-       |  - Output Truncation & Sanitization         |
-       +---------------------------------------------+
-                              |
-                              v
-       +---------------------------------------------+
-       |             Tool Handlers                   |
-       |  - `basic`: time, date, formatted help      |
-       |  - `calculator`: AST-based safe math eval   |
-       |  - `files`: directory list & search         |
-       |  - `tabular`: safe Pandas CSV inspection    |
-       |  - `documents`: safe text & PyMuPDF reader  |
-       +---------------------------------------------+
+       +-------------------------------------------------------+
+       |                 User Interface Layer                  |
+       |  - CLI REPL (`aura.app`)                              |
+       |  - Audio I/O (`aura.audio`): pyttsx3 TTS & STT Listen |
+       +-------------------------------------------------------+
+                                   |
+                                   v
+       +-------------------------------------------------------+
+       |               Routing & Intent Layer                  |
+       |  - `CommandRouter` (`aura.router`)                    |
+       |  - Allowlist Tool Verification                        |
+       |  - Conversational Fallback & LLM Dispatcher           |
+       +-------------------------------------------------------+
+                |                                    |
+                v                                    v
+       +------------------+                +-------------------+
+       |   Safety Layer   |                |    AI Providers   |
+       |  - `aura.safety` |                |  - `NvidiaProvider|
+       |  - Path Boundary |                |  - `GeminiProvider|
+       |  - AST Math Safe |                |  - OpenAI REST    |
+       +------------------+                +-------------------+
+                |
+                v
+       +-------------------------------------------------------+
+       |                     Tool Handlers                     |
+       |  - `basic`: time, date, formatted help                |
+       |  - `calculator`: AST-based safe math eval (verbal ok) |
+       |  - `files`: directory list, type-filtered glob search |
+       |  - `tabular`: Pandas CSV & openpyxl Excel inspection  |
+       |  - `documents`: safe text read/write & PyMuPDF reader |
+       +-------------------------------------------------------+
 ```
 
 ## 2. Request Lifecycle
 
-1. **Input Ingestion**: The interactive loop in `aura.app` prompts the user (`AURA > `) and reads a string command.
-2. **Parsing & Normalization**: The command string is passed to `CommandRouter.execute()`, which trims whitespace and isolates the primary command keyword from arguments.
+1. **Input Ingestion**:
+   - Keyboard: Interactive loop in `aura.app` prompts (`AURA > `).
+   - Voice: Push-to-talk trigger (`listen` / `ptt`) captures microphone audio in-memory, transcribes it via `SpeechToTextListener`, and routes the transcription.
+2. **Parsing & Normalization**: The command string is passed to `CommandRouter.execute()`, trimming whitespace and isolating command keywords.
 3. **Allowlist Dispatch**:
-   - The command keyword is matched against the explicit allowlist.
-   - If a recognized command is found, control flows to the appropriate tool function.
-   - If the input resembles conversational speech (e.g. questions or greetings), a clear notification is displayed that online AI providers are not configured yet in local MVP mode.
-   - Any unrecognized command returns a friendly error directing the user to `help`.
+   - If recognized, routes to the local tool handler (`calc`, `files`, `search`, `read`, `write`, `append`, `csv`, `excel`, `pdf`, `voice`).
+   - If `ask <prompt>` or a natural conversational question is detected, routes to `BaseLLMProvider.generate_response()` (NVIDIA NIM primary, Google Gemini fallback).
+   - If unconfigured, a helpful offline notice is returned directing to `help`.
 4. **Safety & Bounds Check**:
-   - File-based tools validate paths with `validate_workspace_path`, preventing any read access outside the configured `data/` directory.
-   - Mathematical expressions are parsed into an Abstract Syntax Tree (AST) where only safe arithmetic and allowlisted math operations are permitted.
-5. **Response Formatting**: Tool output is sanitized and formatted with clear headings and summaries before returning to the terminal.
-6. **Graceful Termination**: When an exit keyword (`exit`, `quit`, `bye`) is matched, `should_exit=True` is returned and the process shuts down cleanly.
+   - File-based tools validate paths with `validate_workspace_path`, preventing escape from `AURA_WORKSPACE_DIR` (`./data`).
+   - Mathematical expressions are parsed into an AST where only safe arithmetic and allowlisted math operations are permitted.
+5. **Response Formatting & Vocalization**:
+   - Text output is returned to the terminal.
+   - If TTS is enabled (`voice on`), `TextToSpeechEngine` sanitizes formatting (stripping table borders/markdown) and vocalizes the reply.
+6. **Graceful Termination**: `exit`, `quit`, or `bye` cleanly terminates the session.
 
 ## 3. Directory Layout
 
@@ -61,7 +64,7 @@ AURA is organized into loosely coupled, modular layers designed to keep the user
 AI_voice_assistant_AURA/
 ├── pyproject.toml              # Build specification & dependencies
 ├── README.md                   # Quickstart, setup, and usage guide
-├── .gitignore                  # VCS ignore definitions
+├── .gitignore                  # VCS ignore definitions (.env excluded)
 ├── .env.example                # Sample environment configuration
 ├── data/                       # Sandboxed workspace for file operations
 │   ├── .gitkeep
@@ -70,7 +73,8 @@ AI_voice_assistant_AURA/
 ├── docs/
 │   ├── ARCHITECTURE.md         # System design & request lifecycle
 │   ├── SECURITY.md             # Security boundaries & safety model
-│   └── DECISIONS.md            # Technical decisions & assumptions log
+│   ├── DECISIONS.md            # Technical decisions & assumptions log
+│   └── PROGRESS_LOG.md         # Milestones, branch tracking, & roadmap
 ├── src/
 │   └── aura/
 │       ├── __init__.py         # Package root & version
@@ -80,16 +84,29 @@ AI_voice_assistant_AURA/
 │       ├── logging_config.py   # Secure structured logging
 │       ├── router.py           # Command routing & allowlist
 │       ├── safety.py           # Path validation & sandbox enforcement
+│       ├── audio/              # Stage 3 Voice I/O
+│       │   ├── __init__.py
+│       │   ├── stt.py          # Push-to-talk Speech Recognition
+│       │   └── tts.py          # Offline Text-to-Speech (pyttsx3)
+│       ├── providers/          # Stage 4 Online AI Providers
+│       │   ├── __init__.py
+│       │   ├── base.py         # BaseLLMProvider interface
+│       │   ├── factory.py      # LLM provider factory
+│       │   ├── gemini.py       # Google Gemini REST provider
+│       │   └── nvidia.py       # NVIDIA NIM REST provider
 │       └── tools/
 │           ├── __init__.py
 │           ├── basic.py        # Date, time, and help
-│           ├── calculator.py   # Safe AST-based calculator
-│           ├── documents.py    # Safe text & PDF inspection
+│           ├── calculator.py   # Safe AST-based calculator (verbal support)
+│           ├── documents.py    # Safe text read/write & PDF inspection
 │           ├── files.py        # Workspace file listing & glob search
-│           └── tabular.py      # Pandas CSV inspection
+│           └── tabular.py      # Pandas CSV & openpyxl Excel inspection
 └── tests/
-    ├── test_calculator.py     # Safe math evaluation tests
-    ├── test_files.py          # File listing, traversal, & reading tests
+    ├── test_audio.py          # Voice TTS & STT tests
+    ├── test_calculator.py     # Math & verbal expression tests
+    ├── test_documents.py      # PDF & text file read/write tests
+    ├── test_files.py          # Workspace file search & sandbox tests
+    ├── test_providers.py      # Online AI provider & mock integration tests
     ├── test_router.py         # Routing & fallback tests
-    └── test_tabular.py        # CSV parsing & boundary tests
+    └── test_tabular.py        # CSV & Excel schema tests
 ```

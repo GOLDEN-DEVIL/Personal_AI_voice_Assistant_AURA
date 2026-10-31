@@ -1,6 +1,6 @@
 # Project AURA — Security & Privacy Boundaries
 
-Security and privacy are core tenets of Project AURA. This document outlines the security architecture, threat model, and design rules implemented in the MVP.
+Security and privacy are core tenets of Project AURA. This document outlines the security architecture, threat model, and design rules implemented in the project.
 
 ## 1. Core Security Principles
 
@@ -10,14 +10,24 @@ Security and privacy are core tenets of Project AURA. This document outlines the
 - **AST-Based Math Parser**: Arithmetic calculations are validated through Python's `ast` module (`ast.parse(expr, mode='eval')`). Only strictly allowlisted mathematical operations, constants (`pi`, `e`), and functions (`sqrt`, `abs`, etc.) are processed. All attribute access (`obj.attr`), function definitions, loops, and arbitrary calls are strictly blocked.
 
 ### Workspace Sandbox & Path Traversal Prevention
-- All file system operations (`files`, `search`, `read`, `csv`, `pdf`) are confined to the configured workspace directory (defaults to `./data`).
+- All file system operations (`files`, `search`, `read`, `write`, `append`, `csv`, `excel`, `pdf`) are strictly confined to the configured workspace directory (`AURA_WORKSPACE_DIR`, defaults to `./data`).
 - `aura.safety.validate_workspace_path` resolves canonical paths and validates `resolved_path.relative_to(base_dir)`.
 - Path traversal sequences (`../`, absolute system drives like `C:\Windows`) raise an immediate `SecurityError` and are rejected before any disk access occurs.
 
-### Read-Only in MVP
-- The MVP operates exclusively in **read-only mode** on the local filesystem.
-- No files can be created, updated, overwritten, moved, or deleted through assistant commands.
-- Destructive operations in future stages will require mandatory explicit user confirmation.
+### Safe Write & Append Controls (Stage 2)
+- Note and document creation is restricted to safe text file extensions (`.txt`, `.md`, `.log`, `.csv`, `.json`). Executable extensions (`.exe`, `.bat`, `.py`) are denied.
+- Overwriting existing files requires the explicit `--overwrite` flag. Otherwise, modifications must use `append`.
+
+### Zero Audio Retention & Privacy First (Stage 3)
+- Microphone recording operates strictly on a **push-to-talk** basis (`listen` / `ptt`).
+- Audio is captured in-memory for immediate transcription and is **never written to disk, saved in logs, or retained**.
+- Offline Text-to-Speech (TTS) runs completely locally via native OS drivers (`sapi5`/`espeak`) with no third-party cloud data transmission.
+
+### Secret Credentials & API Key Handling (Stage 4)
+- API keys (`NVIDIA_API_KEY`, `GEMINI_API_KEY`) are read exclusively from environment variables via `.env`.
+- `.env` is permanently excluded from version control via `.gitignore`.
+- Keys are masked in application logs and diagnostic outputs to prevent credential leaks.
+- Outbound AI queries are sent over secure HTTPS REST endpoints with strict timeout bounds.
 
 ### Bounded Output & Resource Exhaustion Defense
 - File readings and document extractions are bounded (default max 2000 characters) to prevent terminal flooding or memory exhaustion.
@@ -25,8 +35,4 @@ Security and privacy are core tenets of Project AURA. This document outlines the
 - Large numerical powers in calculations (`base ** exponent` with `abs(exponent) > 1000`) are rejected before execution to avoid CPU hang.
 
 ### Untrusted Content Isolation
-- Documents (PDF, text, CSV) and future model outputs are treated strictly as **untrusted data**, never as executable instructions or system prompts.
-
-### Privacy & Data Protection
-- Microphone recording, continuous audio retention, and persistent profiling are disabled by default.
-- Secret credentials (such as API keys) must only be passed through environment variables and are never checked into version control.
+- External documents (PDF, text, CSV, Excel) and online AI completions are treated strictly as **untrusted data**, never as executable instructions or system prompts.
