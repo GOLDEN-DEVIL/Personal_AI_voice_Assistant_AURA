@@ -81,6 +81,7 @@ AURA >
 | `pdf <filename>` | `pdf manual.pdf` | Inspect PDF metadata and extracted text (requires `pymupdf`) |
 | `voice [on/off]` | `voice on` or `voice off` | Toggle spoken audio responses via offline Text-to-Speech (TTS) |
 | `listen` | `listen` | Activate push-to-talk microphone to speak your command |
+| `ask <question>` | `ask what is quantum computing?` | Query NVIDIA NIM conversational AI (requires `NVIDIA_API_KEY`) |
 | `exit` / `quit` / `bye` | `exit` | Terminate session cleanly |
 
 ---
@@ -104,7 +105,7 @@ Run the full pytest suite:
 python -m pytest -v
 ```
 
-All 45 automated unit and security tests will execute:
+All 65 automated unit and security tests will execute:
 - Safe calculator evaluation & boundary rejection
 - Text-to-Speech text sanitization & speech engine controls
 - Speech-to-Text mock transcription and hardware error handling
@@ -126,6 +127,6 @@ All 45 automated unit and security tests will execute:
 
 - **Stage 2**: Text file creation and expanded tabular filters (Excel support).
 - **Stage 3**: Push-to-talk voice input and offline text-to-speech output (`pyttsx3`).
-- **Stage 4**: Configurable online LLM provider (OpenAI, Gemini, Groq, Ollama) with fallback.
+- **Stage 4**: Configurable online LLM provider (NVIDIA NIM primary, Google Gemini fallback) with conversational routing. (Completed)
 - **Stage 5**: Web search integration with citations.
 - **Stage 6**: Reminders, schedules, and SQLite task persistence.
