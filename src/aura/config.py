@@ -34,7 +34,7 @@ class AuraConfig:
     ai_provider: str = "nvidia"
     gemini_api_key: Optional[str] = None
     nvidia_api_key: Optional[str] = None
-    ai_model: str = "nvidia/llama-3.1-nemotron-nano-8b-v1"
+    ai_model: str = "nvidia/nemotron-3.5-bolt-e4b"
     ai_system_prompt: str = (
         "You are AURA (AI Utility & Response Assistant), a polite, concise, and helpful personal voice assistant. "
         "Provide clear, direct answers under 3-4 sentences when possible."
@@ -62,7 +62,7 @@ class AuraConfig:
         ai_provider = os.getenv("AURA_AI_PROVIDER", "nvidia").lower().strip()
         gemini_api_key = os.getenv("GEMINI_API_KEY") or None
         nvidia_api_key = os.getenv("NVIDIA_API_KEY") or os.getenv("AURA_AI_API_KEY") or None
-        ai_model = os.getenv("AURA_AI_MODEL", "nvidia/llama-3.1-nemotron-nano-8b-v1").strip()
+        ai_model = os.getenv("AURA_AI_MODEL", "nvidia/nemotron-3.5-bolt-e4b").strip()
         ai_system_prompt = os.getenv(
             "AURA_AI_SYSTEM_PROMPT",
             "You are AURA (AI Utility & Response Assistant), a polite, concise, and helpful personal voice assistant. "

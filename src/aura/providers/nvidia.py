@@ -27,12 +27,12 @@ class NvidiaProvider(BaseLLMProvider):
     def __init__(
         self,
         api_key: Optional[str] = None,
-        model_name: str = "nvidia/llama-3.1-nemotron-nano-8b-v1",
+        model_name: str = "nvidia/nemotron-3.5-bolt-e4b",
         system_prompt: str = DEFAULT_SYSTEM_PROMPT,
         timeout_seconds: int = 30,
     ) -> None:
         self.api_key = api_key.strip() if api_key else None
-        self.model_name = model_name or "nvidia/llama-3.1-nemotron-nano-8b-v1"
+        self.model_name = model_name or "nvidia/nemotron-3.5-bolt-e4b"
         self.system_prompt = system_prompt
         self.timeout = timeout_seconds
 
