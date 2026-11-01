@@ -32,7 +32,7 @@ A modular, secure, and extensible desktop command & voice assistant foundation w
    pip install -e .
    ```
 
-4. (Optional) Install PDF document support and test runner:
+4. (Optional) Install PDF document support, voice audio, and test runner:
    ```bash
    pip install -e .[all]
    ```
@@ -51,11 +51,14 @@ You will be greeted by the AURA banner:
 ```text
 ======================================================
   Project AURA - AI Utility & Response Assistant
-  Version: 0.1.0 | Mode: Local MVP
+  Version: 0.1.0 | Mode: Voice & Command
 ======================================================
-  Workspace: ./data
-  Status   : Ready for input
-  Hint     : Type 'help' for commands, 'exit' to quit.
+  Workspace  : C:\path\to\project\data
+  Voice TTS  : [OFF] (use 'voice on' / 'voice off')
+  Voice PTT  : [READY (type 'listen')]
+  Online AI  : [NVIDIA NIM (nvidia/nemotron-3.5-bolt-e4b)]
+  Web Search : [DuckDuckGo (Zero-Key)]
+  Hint       : Type 'help' for commands, 'exit' to quit.
 ------------------------------------------------------
 
 AURA > 
@@ -82,6 +85,8 @@ AURA >
 | `voice [on/off]` | `voice on` or `voice off` | Toggle spoken audio responses via offline Text-to-Speech (TTS) |
 | `listen` | `listen` | Activate push-to-talk microphone to speak your command |
 | `ask <question>` | `ask what is quantum computing?` | Query NVIDIA NIM conversational AI (requires `NVIDIA_API_KEY`) |
+| `web <query>` | `web latest space missions` | Search live web and display cited sources, titles, and links |
+| `webask <query>` | `webask who won the 2024 Nobel Prize in Physics?` | Search live web and synthesize grounded answer with source citations |
 | `exit` / `quit` / `bye` | `exit` | Terminate session cleanly |
 
 ---
@@ -92,6 +97,7 @@ AURA >
 - **AST Mathematical Validation**: Expressions are parsed using `ast.parse` with an allowlist of operators and functions.
 - **Sandboxed Workspace**: File inspection and creation are strictly confined to the directory configured via `AURA_WORKSPACE_DIR` (defaults to `./data`). Path traversal (`../`, absolute drive access) is automatically blocked.
 - **Zero Audio Retention (Privacy First)**: Speech recognition operates purely in-memory on push-to-talk (`listen`). AURA **never** records, streams, or saves microphone audio files to disk.
+- **Prompt Injection Defense & URL Scheme Allowlist**: Web searches validate URLs to only allow `http`/`https` (rejecting `javascript:`, `file:`, `data:`). Untrusted search snippets are defanged for prompt injection attacks and wrapped in sandboxed reference tags.
 - **Overwrite Protection**: The assistant will not silently replace user files without explicit `--overwrite` or `append`.
 - **Graceful Degradation**: Optional dependencies (such as `pyttsx3`, `pyaudio`, `openpyxl`, or `pymupdf`) provide clear setup instructions instead of crashing.
 
@@ -99,34 +105,8 @@ AURA >
 
 ## 5. Running Automated Tests
 
-Run the full pytest suite:
+Run the full pytest suite with:
 
 ```bash
-python -m pytest -v
+pytest
 ```
-
-All 65 automated unit and security tests will execute:
-- Safe calculator evaluation & boundary rejection
-- Text-to-Speech text sanitization & speech engine controls
-- Speech-to-Text mock transcription and hardware error handling
-- Path traversal & workspace boundary containment
-- Tabular CSV & multi-sheet Excel schema validations
-- Command routing, voice controls, & conversational fallbacks
-
----
-
-## 6. Architecture & Documentation
-
-- [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md): System layout and request lifecycle
-- [docs/SECURITY.md](docs/SECURITY.md): Threat model, privacy, and safety boundaries
-- [docs/DECISIONS.md](docs/DECISIONS.md): Architectural decisions and trade-offs log
-
----
-
-## 7. Roadmap & Next Stages
-
-- **Stage 2**: Text file creation and expanded tabular filters (Excel support).
-- **Stage 3**: Push-to-talk voice input and offline text-to-speech output (`pyttsx3`).
-- **Stage 4**: Configurable online LLM provider (NVIDIA NIM primary, Google Gemini fallback) with conversational routing. (Completed)
-- **Stage 5**: Web search integration with citations.
-- **Stage 6**: Reminders, schedules, and SQLite task persistence.

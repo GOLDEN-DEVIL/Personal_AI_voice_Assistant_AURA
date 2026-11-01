@@ -8,6 +8,11 @@ from typing import Optional, Tuple
 from aura.audio.tts import TextToSpeechEngine
 from aura.config import AuraConfig
 from aura.providers.base import BaseLLMProvider
+from aura.search.base import BaseSearchProvider
+from aura.search.safety import (
+    format_search_context_for_llm,
+    format_search_results_for_display,
+)
 from aura.tools.basic import format_help, get_current_date, get_current_time
 from aura.tools.calculator import evaluate_expression
 from aura.tools.documents import inspect_pdf, read_text_file, write_text_file
@@ -23,10 +28,12 @@ class CommandRouter:
         config: AuraConfig,
         tts_engine: Optional[TextToSpeechEngine] = None,
         llm_provider: Optional[BaseLLMProvider] = None,
+        search_provider: Optional[BaseSearchProvider] = None,
     ) -> None:
         self.config = config
         self.tts = tts_engine
         self.llm = llm_provider
+        self.search = search_provider
         self.command_help: dict[str, str] = {
             "help": "Display this help menu with all available commands",
             "time": "Show current local time and timezone",
@@ -43,6 +50,8 @@ class CommandRouter:
             "voice [on/off]": "Toggle or check spoken audio responses (Text-to-Speech)",
             "listen": "Activate push-to-talk microphone to speak your command",
             "ask <question>": "Ask conversational AI anything (requires NVIDIA_API_KEY in .env)",
+            "web <query>": "Search live web and display cited sources, titles, and links",
+            "webask <query>": "Search web and synthesize answer with source citations via AI",
             "exit / quit / bye": "Terminate the assistant session",
         }
 
@@ -114,7 +123,6 @@ class CommandRouter:
                 overwrite = True
                 content = arg_tokens[2] if len(arg_tokens) > 2 else ""
             else:
-                # Content is everything after filename
                 content = args[len(filename):].strip()
 
             if not content:
@@ -210,6 +218,47 @@ class CommandRouter:
                 "(In the interactive terminal session, typing 'listen' activates the microphone).",
                 False,
             )
+
+        # Web Search Command (Stage 5)
+        if command_key in ("web", "websearch", "google", "ddg"):
+            if not args:
+                return "Usage: web <query> (e.g. 'web latest space missions' or 'web python 3.13 features')", False
+            if self.search:
+                results = self.search.search(args, max_results=self.config.search_max_results)
+                return format_search_results_for_display(results, args), False
+            return "Web search provider is not initialized.", False
+
+        # Web Search + AI Synthesis Command (Stage 5)
+        if command_key in ("webask", "askweb", "searchask"):
+            if not args:
+                return "Usage: webask <question> (e.g. 'webask who won the 2024 Nobel Prize in Physics?')", False
+            if not self.search:
+                return "Web search provider is not initialized.", False
+
+            results = self.search.search(args, max_results=self.config.search_max_results)
+            if not results:
+                return f"No web search results found for: '{args}'. Unable to ground response.", False
+
+            if not self.llm or not self.llm.is_available():
+                results_text = format_search_results_for_display(results, args)
+                return (
+                    f"AI Notice: Online AI provider is not enabled.\n"
+                    f"Retrieved these raw web results without AI synthesis:\n\n{results_text}"
+                ), False
+
+            context = format_search_context_for_llm(results, args)
+            augmented_prompt = (
+                f"{context}\n\n"
+                f"User Question: {args}\n\n"
+                f"Instructions: Answer the question concisely using the sources above. "
+                f"Cite relevant source numbers like [1], [2] when stating facts."
+            )
+            ai_response = self.llm.generate_response(augmented_prompt)
+
+            citations = "\n\nSources Cited:\n" + "\n".join(
+                f"[{i}] {r.title} - {r.url}" for i, r in enumerate(results, start=1)
+            )
+            return ai_response + citations, False
 
         # Explicit AI Ask Command
         if command_key in ("ask", "ai", "nvidia", "nim", "gemini"):

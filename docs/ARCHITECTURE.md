@@ -4,7 +4,7 @@ This document describes the high-level architecture, component boundaries, and r
 
 ## 1. Architectural Overview
 
-AURA is organized into loosely coupled, modular layers designed to keep the user interface separate from core tooling, audio pipelines, AI providers, and safety logic.
+AURA is organized into loosely coupled, modular layers designed to keep the user interface separate from core tooling, audio pipelines, AI providers, web search, and safety logic.
 
 ```
        +-------------------------------------------------------+
@@ -20,16 +20,18 @@ AURA is organized into loosely coupled, modular layers designed to keep the user
        |  - Allowlist Tool Verification                        |
        |  - Conversational Fallback & LLM Dispatcher           |
        +-------------------------------------------------------+
-                |                                    |
-                v                                    v
-       +------------------+                +-------------------+
-       |   Safety Layer   |                |    AI Providers   |
-       |  - `aura.safety` |                |  - `NvidiaProvider|
-       |  - Path Boundary |                |  - `GeminiProvider|
-       |  - AST Math Safe |                |  - OpenAI REST    |
-       +------------------+                +-------------------+
-                |
-                v
+          |                   |                     |
+          v                   v                     v
+   +--------------+   +---------------+   +-------------------+
+   | Safety Layer |   |  Web Search   |   |    AI Providers   |
+   | - Sandbox    |   | - BaseSearch  |   |  - NvidiaProvider |
+   | - Injection  |   | - DuckDuckGo  |   |  - GeminiProvider |
+   | - AST Math   |   | - Tavily REST |   |  - OpenAI REST    |
+   +--------------+   +---------------+   +-------------------+
+          |                   |                     |
+          +───────────────────┼─────────────────────+
+                              |
+                              v
        +-------------------------------------------------------+
        |                     Tool Handlers                     |
        |  - `basic`: time, date, formatted help                |
@@ -37,6 +39,7 @@ AURA is organized into loosely coupled, modular layers designed to keep the user
        |  - `files`: directory list, type-filtered glob search |
        |  - `tabular`: Pandas CSV & openpyxl Excel inspection  |
        |  - `documents`: safe text read/write & PyMuPDF reader |
+       |  - `search`: live web search & grounded AI synthesis  |
        +-------------------------------------------------------+
 ```
 
@@ -48,10 +51,13 @@ AURA is organized into loosely coupled, modular layers designed to keep the user
 2. **Parsing & Normalization**: The command string is passed to `CommandRouter.execute()`, trimming whitespace and isolating command keywords.
 3. **Allowlist Dispatch**:
    - If recognized, routes to the local tool handler (`calc`, `files`, `search`, `read`, `write`, `append`, `csv`, `excel`, `pdf`, `voice`).
+   - If `web <query>` or `webask <query>` is entered, routes to `BaseSearchProvider` (DuckDuckGo zero-key default or Tavily), passes results through `sanitize_search_result`, and either prints citations or generates a grounded LLM answer.
    - If `ask <prompt>` or a natural conversational question is detected, routes to `BaseLLMProvider.generate_response()` (NVIDIA NIM primary, Google Gemini fallback).
    - If unconfigured, a helpful offline notice is returned directing to `help`.
 4. **Safety & Bounds Check**:
    - File-based tools validate paths with `validate_workspace_path`, preventing escape from `AURA_WORKSPACE_DIR` (`./data`).
+   - Web URLs are verified against an `http`/`https` allowlist, defanging dangerous schemes (`javascript:`, `file:`, `data:`).
+   - External search snippets are defanged for prompt injection keywords and wrapped in unverified XML tags for LLM prompts.
    - Mathematical expressions are parsed into an AST where only safe arithmetic and allowlisted math operations are permitted.
 5. **Response Formatting & Vocalization**:
    - Text output is returned to the terminal.
@@ -94,6 +100,13 @@ AI_voice_assistant_AURA/
 │       │   ├── factory.py      # LLM provider factory
 │       │   ├── gemini.py       # Google Gemini REST provider
 │       │   └── nvidia.py       # NVIDIA NIM REST provider
+│       ├── search/             # Stage 5 Web Search Providers
+│       │   ├── __init__.py
+│       │   ├── base.py         # BaseSearchProvider & SearchResult
+│       │   ├── duckduckgo.py   # Zero-key DuckDuckGo search provider
+│       │   ├── factory.py      # Search provider factory
+│       │   ├── safety.py       # URL validation & prompt injection defense
+│       │   └── tavily.py       # Tavily AI Search REST provider
 │       └── tools/
 │           ├── __init__.py
 │           ├── basic.py        # Date, time, and help
@@ -108,5 +121,6 @@ AI_voice_assistant_AURA/
     ├── test_files.py          # Workspace file search & sandbox tests
     ├── test_providers.py      # Online AI provider & mock integration tests
     ├── test_router.py         # Routing & fallback tests
+    ├── test_search.py         # Web search, URL safety & injection tests
     └── test_tabular.py        # CSV & Excel schema tests
 ```
