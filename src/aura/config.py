@@ -39,6 +39,9 @@ class AuraConfig:
         "You are AURA (AI Utility & Response Assistant), a polite, concise, and helpful personal voice assistant. "
         "Provide clear, direct answers under 3-4 sentences when possible."
     )
+    search_provider: str = "duckduckgo"
+    tavily_api_key: Optional[str] = None
+    search_max_results: int = 5
 
     @classmethod
     def load(cls) -> AuraConfig:
@@ -69,6 +72,14 @@ class AuraConfig:
             "Provide clear, direct answers under 3-4 sentences when possible.",
         )
 
+        # Web Search Provider configuration (Stage 5)
+        search_provider = os.getenv("AURA_SEARCH_PROVIDER", "duckduckgo").lower().strip()
+        tavily_api_key = os.getenv("TAVILY_API_KEY") or None
+        try:
+            search_max_results = int(os.getenv("AURA_SEARCH_MAX_RESULTS", "5"))
+        except ValueError:
+            search_max_results = 5
+
         # Locate project root (assuming src/aura/config.py -> root is 3 levels up)
         project_root = Path(__file__).resolve().parent.parent.parent
 
@@ -94,4 +105,7 @@ class AuraConfig:
             nvidia_api_key=nvidia_api_key,
             ai_model=ai_model,
             ai_system_prompt=ai_system_prompt,
+            search_provider=search_provider,
+            tavily_api_key=tavily_api_key,
+            search_max_results=search_max_results,
         )

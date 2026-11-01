@@ -53,7 +53,30 @@ This document tracks completed milestones, branch status, and immediate next ste
 
 ---
 
-## Next Milestone: Stage 5 — Provider-Based Web Search
-- Web search provider tool returning concise source titles and links.
-- Clearly separate retrieved search text from assistant reasoning.
-- Treat untrusted web results with prompt injection safeguards.
+### Stage 5: Provider-Based Web Search (Completed on `feature/stage5-web-search`)
+- **Pluggable Search Architecture** ([`src/aura/search/base.py`](../src/aura/search/base.py)):
+  - Immutable `SearchResult` data model with title, safe direct URL, and bounded snippet.
+  - Abstract `BaseSearchProvider` interface with availability and search contracts.
+- **Zero-Key Search Provider** ([`src/aura/search/duckduckgo.py`](../src/aura/search/duckduckgo.py)):
+  - Standard library `urllib.request` and `html.parser` implementation for DuckDuckGo.
+  - Automatic extraction of actual target destination URLs from DuckDuckGo redirection links (`uddg=...`).
+  - Zero external SDK or cloud API key prerequisites.
+- **AI Search API Provider** ([`src/aura/search/tavily.py`](../src/aura/search/tavily.py)):
+  - High-precision search API for LLM agents, activated via `AURA_SEARCH_PROVIDER=tavily` and `TAVILY_API_KEY`.
+- **Untrusted Content & Prompt Injection Defenses** ([`src/aura/search/safety.py`](../src/aura/search/safety.py)):
+  - Strict URL scheme allowlisting (`http` and `https` only; blocked `javascript:`, `file:`, `data:`, `blob:`).
+  - Output bounding on titles and snippets to prevent buffer bloat or terminal flooding.
+  - Regex-based defanging for prompt-hijacking directives (e.g. `Ignore previous instructions`, `### System:`, `[INST]`).
+  - Sandboxed prompt isolation (`<unverified_external_web_search_results>`) to instruct LLMs that web excerpts are strictly untrusted reference data.
+- **Command Router Integration** ([`src/aura/router.py`](../src/aura/router.py)):
+  - `web <query>`: Direct web search showing numbered titles, URLs, and summaries.
+  - `webask <query>`: Grounded AI search. Synthesizes answers using NVIDIA NIM / Gemini with inline citations `[1]`, `[2]` and attaches source links.
+  - Live Web Search status indicator in terminal startup banner ([`src/aura/app.py`](../src/aura/app.py)).
+- **Automated Tests**: 84 unit and security tests passing (19 new search tests).
+
+---
+
+## Next Milestone: Stage 6 — Tasks and Reminders
+- SQLite persistence schema for tasks and timed reminders.
+- Add scheduling only after the data model and tests are in place.
+- Require confirmation before scheduling external actions or sending notifications.

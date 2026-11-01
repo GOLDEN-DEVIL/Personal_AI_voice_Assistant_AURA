@@ -71,3 +71,11 @@ This document logs significant architectural and design choices, alternatives co
 - **Context**: Stage 4 introduces cloud LLMs for answering freeform conversational questions. We need fast, reliable models with zero third-party package compilation friction.
 - **Decision**: Implemented `BaseLLMProvider` interface with `NvidiaProvider` as primary (OpenAI-compatible REST API hitting `https://integrate.api.nvidia.com/v1/chat/completions` using `nvidia/nemotron-3.5-bolt-e4b`) and `GeminiProvider` as fallback, both using Python's standard library `urllib.request`.
 - **Rationale**: Zero SDK dependency footprint, sub-second latency (0.32s), robust error categorization (HTTP 401, 404, 410, 429), and seamless fallback to local tools when offline or unconfigured.
+
+
+---
+
+### Decision 11: Pluggable Web Search with Zero-Key Default & Prompt Injection Defense (Stage 5)
+- **Context**: Stage 5 requires web search to look up external and current information, returning concise sources and links, while protecting against untrusted web inputs and prompt injection.
+- **Decision**: Implemented `BaseSearchProvider` with `DuckDuckGoSearchProvider` as the zero-key out-of-the-box default (using standard library `urllib` and `html.parser`), alongside `TavilySearchProvider` for structured AI searches. Enforced URL validation (`http`/`https` only), output bounding, regex defanging of prompt injection directives, and sandboxed prompt wrapping (`<unverified_external_web_search_results>`) for `webask`.
+- **Rationale**: Keeps AURA completely usable out-of-the-box without requiring paid API keys, isolates untrusted third-party web content from assistant reasoning, and gives users both raw (`web`) and AI-synthesized (`webask`) modes.

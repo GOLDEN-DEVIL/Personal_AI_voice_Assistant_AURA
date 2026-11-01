@@ -36,3 +36,10 @@ Security and privacy are core tenets of Project AURA. This document outlines the
 
 ### Untrusted Content Isolation
 - External documents (PDF, text, CSV, Excel) and online AI completions are treated strictly as **untrusted data**, never as executable instructions or system prompts.
+
+
+### Web Search & Prompt Injection Defense (Stage 5)
+- **Strict URL Scheme Allowlist**: All URLs returned from web searches must strictly resolve to `http://` or `https://` schemes. Potentially dangerous schemes (`javascript:`, `file:`, `data:`, `vbscript:`, `blob:`) and URLs containing unprintable control characters or null bytes are rejected immediately by `aura.search.safety.validate_url`.
+- **Character Bounding**: Web snippets (max 400 chars) and titles (max 150 chars) are strictly truncated and stripped of raw HTML to prevent buffer overflows or terminal flooding.
+- **Indirect Prompt Injection Neutralization**: External web text is scanned for adversarial prompt-override patterns (e.g., `Ignore previous instructions`, `### System:`, `[INST]`, `you are now in developer mode`). Matching sequences are defanged into unverified quoted tokens (`[defanged: '...']`).
+- **LLM Sandboxing & Context Isolation**: For grounded queries (`webask`), retrieved search excerpts are wrapped in strict `<unverified_external_web_search_results>` XML tags, instructing the AI to treat them exclusively as external reference data and never as executable instructions.
