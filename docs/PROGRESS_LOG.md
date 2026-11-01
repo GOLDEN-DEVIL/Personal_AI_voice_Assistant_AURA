@@ -53,7 +53,7 @@ This document tracks completed milestones, branch status, and immediate next ste
 
 ---
 
-### Stage 5: Provider-Based Web Search (Completed on `feature/stage5-web-search`)
+### Stage 5: Provider-Based Web Search (Merged into `main`)
 - **Pluggable Search Architecture** ([`src/aura/search/base.py`](../src/aura/search/base.py)):
   - Immutable `SearchResult` data model with title, safe direct URL, and bounded snippet.
   - Abstract `BaseSearchProvider` interface with availability and search contracts.
