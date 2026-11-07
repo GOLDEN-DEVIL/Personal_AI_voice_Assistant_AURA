@@ -6,6 +6,7 @@ import re
 from typing import Optional, Tuple
 
 from aura.audio.tts import TextToSpeechEngine
+from aura.audio.wakeword import WakeWordDetector
 from aura.config import AuraConfig
 from aura.providers.base import BaseLLMProvider
 from aura.search.base import BaseSearchProvider
@@ -33,12 +34,14 @@ class CommandRouter:
         llm_provider: Optional[BaseLLMProvider] = None,
         search_provider: Optional[BaseSearchProvider] = None,
         task_db: Optional[TaskDatabase] = None,
+        wakeword_detector: Optional[WakeWordDetector] = None,
     ) -> None:
         self.config = config
         self.tts = tts_engine
         self.llm = llm_provider
         self.search = search_provider
         self.task_db = task_db
+        self.wakeword = wakeword_detector
         self.command_help: dict[str, str] = {
             "help": "Display this help menu with all available commands",
             "time": "Show current local time and timezone",
@@ -57,6 +60,7 @@ class CommandRouter:
             "reminders": "List scheduled reminders or use 'reminder cancel <id>'",
             "voice [on/off]": "Toggle or check spoken audio responses (Text-to-Speech)",
             "listen": "Activate push-to-talk microphone to speak your command",
+            "wakeword [on/off/status]": "Toggle wake-word detection ('Hey AURA') with visible indicator",
             "ask <question>": "Ask conversational AI anything (requires NVIDIA_API_KEY in .env)",
             "web <query>": "Search live web and display cited sources, titles, and links",
             "webask <query>": "Search web and synthesize answer with source citations via AI",
@@ -234,6 +238,41 @@ class CommandRouter:
                 "(In the interactive terminal session, typing 'listen' activates the microphone).",
                 False,
             )
+
+        # Wake-Word Detection Controls (Stage 7)
+        if command_key in ("wakeword", "wake", "hotword"):
+            sub_cmd = args.strip().lower()
+            if sub_cmd in ("on", "enable", "start", "1"):
+                if self.wakeword:
+                    self.wakeword.set_enabled(True)
+                    return (
+                        f"Wake-word detection ('{self.wakeword.wake_word}') is now ENABLED.\n"
+                        f"Engine: {self.wakeword.engine_name}\n"
+                        "AURA will actively scan for the wake phrase with visible terminal indicators.",
+                        False,
+                    )
+                return "Wake-word detector is not initialized in this session.", False
+            elif sub_cmd in ("off", "disable", "stop", "0"):
+                if self.wakeword:
+                    self.wakeword.set_enabled(False)
+                    return "Wake-word detection is now DISABLED.", False
+                return "Wake-word detector is not initialized in this session.", False
+            elif sub_cmd in ("status", ""):
+                if self.wakeword:
+                    st = self.wakeword.get_status()
+                    state_str = "ENABLED" if st["enabled"] else "DISABLED"
+                    avail_str = "available" if st["available"] else "unavailable"
+                    return (
+                        f"Wake-Word Detection is currently {state_str} (hardware: {avail_str}).\n"
+                        f"Trigger Phrase : \"{st['wake_word']}\"\n"
+                        f"Engine         : {st['engine']}\n"
+                        f"Threshold      : {st['threshold']}\n"
+                        "Use 'wakeword on' or 'wakeword off' to toggle.",
+                        False,
+                    )
+                return "Wake-word detector is not initialized in this session.", False
+            else:
+                return "Usage: wakeword [on|off|status]", False
 
         # Web Search Command (Stage 5)
         if command_key in ("web", "websearch", "google", "ddg"):

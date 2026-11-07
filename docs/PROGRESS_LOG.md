@@ -96,11 +96,32 @@ This document tracks completed milestones, branch status, and immediate next ste
   - `remind <when> to <message>`
   - `reminders` & `reminder cancel <id>`
   - Live tasks and reminders count in terminal startup banner ([`src/aura/app.py`](../src/aura/app.py)).
-- **Automated Tests**: 101 unit and security tests passing (17 new task and reminder tests).
+- **Automated Tests**: 101 unit and security tests passing.
 
 ---
 
-## Next Milestone: Stage 7 — Wake Word Detection
-- Offline wake-word detection engine (e.g. `openWakeWord`).
-- Explicit opt-in activation and visible listening indicators.
-- Immediate pause/stop controls ensuring zero silent listening.
+### Stage 7: Wake Word Detection (Completed on `feature/stage7-wake-word`)
+- **Wake-Word Detection Engine** ([`src/aura/audio/wakeword.py`](../src/aura/audio/wakeword.py)):
+  - Offline wake-word detection engine with state machine (`DISABLED`, `IDLE`, `LISTENING`, `TRIGGERED`, `PAUSED`).
+  - Pluggable backend support: `openWakeWord` neural detection if installed, with a zero-dependency `SpeechRecognition` keyword fallback (`"hey aura"` / `"aura"`).
+  - Explicit user opt-in: **Disabled by default** (`AURA_WAKE_WORD_ENABLED=false`). Never runs always-on listening silently.
+  - Strict privacy compliance: **Zero audio recording or retention on disk**. Raw audio frames are processed strictly in RAM ring buffers and immediately discarded.
+  - Acoustic echo/feedback suppression: Automatically pauses wake-word detection while TTS is speaking and resumes after playback.
+- **Hands-Free Interactive Voice Loop** ([`src/aura/app.py`](../src/aura/app.py)):
+  - Activated via `listen wake` / `wake listen` / `voice loop`.
+  - Continuous hands-free cycle: Wake Word ("Hey AURA") -> Speech-to-Text -> Intent Router -> Text-to-Speech response -> Return to wake-word listening.
+  - Clear visual terminal indicators: `[WAKE WORD: ACTIVE - Listening for "Hey AURA"]` and `[WAKE WORD DETECTED]`.
+  - Immediate interruption controls: Say "stop listening" or press `Ctrl+C` to return instantly to the command prompt.
+- **Router & CLI Controls** ([`src/aura/router.py`](../src/aura/router.py)):
+  - `wakeword on`: Activates wake-word listening.
+  - `wakeword off`: Immediately disables wake-word listening.
+  - `wakeword status`: Displays current operating state, trigger phrase, sensitivity threshold, and hardware engine.
+  - Live wake-word state indicator in terminal startup banner.
+- **Automated Tests**: 111 unit and security tests passing (10 new wake-word tests).
+
+---
+
+## Next Milestone: Stage 8 — Memory
+- Opt-in persistent memory with view, edit, and delete controls.
+- Clear separation between short-term conversational context and long-term saved facts.
+- Explicit user confirmation before saving, updating, or wiping memory records.

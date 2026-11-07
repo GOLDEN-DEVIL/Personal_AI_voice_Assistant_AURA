@@ -43,6 +43,9 @@ class AuraConfig:
     tavily_api_key: Optional[str] = None
     search_max_results: int = 5
     tasks_db_path: Optional[Path] = None
+    wakeword_enabled: bool = False
+    wakeword_model: str = "hey aura"
+    wakeword_threshold: float = 0.5
 
     @classmethod
     def load(cls) -> AuraConfig:
@@ -100,6 +103,14 @@ class AuraConfig:
         else:
             tasks_db_path = (workspace_path / "aura_tasks.db").resolve()
 
+        # Wake-Word Detection configuration (Stage 7)
+        wakeword_enabled = os.getenv("AURA_WAKE_WORD_ENABLED", "false").lower() in ("true", "1", "yes")
+        wakeword_model = os.getenv("AURA_WAKE_WORD", "hey aura").strip()
+        try:
+            wakeword_threshold = float(os.getenv("AURA_WAKE_WORD_THRESHOLD", "0.5"))
+        except ValueError:
+            wakeword_threshold = 0.5
+
         return cls(
             app_name=app_name,
             version=version,
@@ -117,4 +128,7 @@ class AuraConfig:
             tavily_api_key=tavily_api_key,
             search_max_results=search_max_results,
             tasks_db_path=tasks_db_path,
+            wakeword_enabled=wakeword_enabled,
+            wakeword_model=wakeword_model,
+            wakeword_threshold=wakeword_threshold,
         )
