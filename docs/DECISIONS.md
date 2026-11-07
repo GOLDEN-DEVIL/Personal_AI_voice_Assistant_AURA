@@ -79,3 +79,11 @@ This document logs significant architectural and design choices, alternatives co
 - **Context**: Stage 5 requires web search to look up external and current information, returning concise sources and links, while protecting against untrusted web inputs and prompt injection.
 - **Decision**: Implemented `BaseSearchProvider` with `DuckDuckGoSearchProvider` as the zero-key out-of-the-box default (using standard library `urllib` and `html.parser`), alongside `TavilySearchProvider` for structured AI searches. Enforced URL validation (`http`/`https` only), output bounding, regex defanging of prompt injection directives, and sandboxed prompt wrapping (`<unverified_external_web_search_results>`) for `webask`.
 - **Rationale**: Keeps AURA completely usable out-of-the-box without requiring paid API keys, isolates untrusted third-party web content from assistant reasoning, and gives users both raw (`web`) and AI-synthesized (`webask`) modes.
+
+
+---
+
+### Decision 12: Embedded SQLite Storage & Threaded Daemon Scheduler for Tasks and Reminders (Stage 6)
+- **Context**: Stage 6 requires persistent task tracking and timed reminders without external cloud databases, heavy ORMs, or background daemon installation requirements.
+- **Decision**: Implemented `TaskDatabase` utilizing Python's built-in `sqlite3` module with an embedded database stored inside `data/aura_tasks.db`. Provided strict connection lifecycle management via a context manager to eliminate Windows file-locking issues. Implemented a non-blocking `ReminderScheduler` running on a daemon thread polling due timestamps and executing an atomic status transition before notification dispatch.
+- **Rationale**: Keeps AURA completely self-contained, offline-capable, cross-platform, and fast. Eliminates third-party database daemon dependencies while providing thread-safe CRUD and notifications with TTS integration.

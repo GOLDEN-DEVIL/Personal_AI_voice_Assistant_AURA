@@ -13,6 +13,9 @@ from aura.search.safety import (
     format_search_context_for_llm,
     format_search_results_for_display,
 )
+from aura.tasks.db import TaskDatabase
+from aura.tasks.formatters import format_reminders_list, format_tasks_list
+from aura.tasks.time_parser import parse_reminder_command
 from aura.tools.basic import format_help, get_current_date, get_current_time
 from aura.tools.calculator import evaluate_expression
 from aura.tools.documents import inspect_pdf, read_text_file, write_text_file
@@ -29,11 +32,13 @@ class CommandRouter:
         tts_engine: Optional[TextToSpeechEngine] = None,
         llm_provider: Optional[BaseLLMProvider] = None,
         search_provider: Optional[BaseSearchProvider] = None,
+        task_db: Optional[TaskDatabase] = None,
     ) -> None:
         self.config = config
         self.tts = tts_engine
         self.llm = llm_provider
         self.search = search_provider
+        self.task_db = task_db
         self.command_help: dict[str, str] = {
             "help": "Display this help menu with all available commands",
             "time": "Show current local time and timezone",
@@ -47,6 +52,9 @@ class CommandRouter:
             "csv <filename>": "Inspect CSV structure, columns, and data preview via Pandas",
             "excel <file> [sheet]": "Inspect Excel spreadsheet workbook and sheet contents via openpyxl",
             "pdf <filename>": "Inspect PDF metadata and page text via PyMuPDF",
+            "task [add|list|done|delete]": "Manage persistent tasks (e.g. 'task add Finish slides --priority high')",
+            "remind <when> to <msg>": "Schedule a timed reminder (e.g. 'remind in 15m to take a break')",
+            "reminders": "List scheduled reminders or use 'reminder cancel <id>'",
             "voice [on/off]": "Toggle or check spoken audio responses (Text-to-Speech)",
             "listen": "Activate push-to-talk microphone to speak your command",
             "ask <question>": "Ask conversational AI anything (requires NVIDIA_API_KEY in .env)",
@@ -187,6 +195,14 @@ class CommandRouter:
                 max_chars=self.config.max_preview_chars,
             ), False
 
+        # Tasks Management (Stage 6)
+        if command_key in ("task", "tasks", "todo"):
+            return self._handle_task_command(args), False
+
+        # Reminders Management (Stage 6)
+        if command_key in ("remind", "reminder", "reminders"):
+            return self._handle_reminder_command(command_key, args), False
+
         # Voice Output (TTS) Controls
         if command_key in ("voice", "tts"):
             sub_cmd = args.strip().lower()
@@ -291,6 +307,150 @@ class CommandRouter:
             f"Type 'help' to view the list of supported commands or 'exit' to quit.",
             False,
         )
+
+    # -----------------------------------------------------------------------
+    # Task & Reminder Handlers (Stage 6)
+    # -----------------------------------------------------------------------
+
+    def _handle_task_command(self, args: str) -> str:
+        """Process 'task' and 'tasks' subcommands."""
+        if not self.task_db:
+            return "Task management database is not initialized."
+
+        trimmed = args.strip()
+        if not trimmed or trimmed.lower() in ("list", "ls", "all"):
+            tasks = self.task_db.list_tasks()
+            return format_tasks_list(tasks)
+
+        tokens = trimmed.split(maxsplit=1)
+        sub_cmd = tokens[0].lower()
+        sub_args = tokens[1].strip() if len(tokens) > 1 else ""
+
+        # task list [--pending|--done|--completed|--high|--low]
+        if sub_cmd in ("list", "ls"):
+            status_filter = None
+            priority_filter = None
+            for flag in sub_args.split():
+                f_clean = flag.lower().lstrip("-")
+                if f_clean in ("pending", "todo"):
+                    status_filter = "pending"
+                elif f_clean in ("done", "completed"):
+                    status_filter = "completed"
+                elif f_clean in ("low", "medium", "high"):
+                    priority_filter = f_clean
+            tasks = self.task_db.list_tasks(status=status_filter, priority=priority_filter)
+            return format_tasks_list(tasks, filter_name=status_filter or priority_filter)
+
+        # task add <title> [--priority low|med|high] [--due YYYY-MM-DD]
+        if sub_cmd == "add":
+            if not sub_args:
+                return "Usage: task add <title> [--priority low|medium|high] [--due YYYY-MM-DD]"
+
+            # Parse optional flags
+            priority = "medium"
+            due_date = None
+            title_parts: list[str] = []
+            skip_next = False
+            words = sub_args.split()
+
+            for i, w in enumerate(words):
+                if skip_next:
+                    skip_next = False
+                    continue
+                if w.lower() in ("--priority", "-p") and i + 1 < len(words):
+                    priority = words[i + 1].lower()
+                    skip_next = True
+                elif w.lower() in ("--due", "-d") and i + 1 < len(words):
+                    due_date = words[i + 1]
+                    skip_next = True
+                else:
+                    title_parts.append(w)
+
+            task_title = " ".join(title_parts).strip()
+            if not task_title:
+                return "Error: Task title cannot be empty."
+
+            try:
+                task = self.task_db.add_task(task_title, priority=priority, due_date=due_date)
+                due_info = f" (due: {task.due_date})" if task.due_date else ""
+                return f"Task #{task.id} created: '{task.title}' [{task.priority.upper()}]{due_info}"
+            except ValueError as err:
+                return f"Error creating task: {err}"
+
+        # task done <id> / complete <id>
+        if sub_cmd in ("done", "complete", "check"):
+            if not sub_args:
+                return "Usage: task done <id> (e.g. 'task done 1')"
+            try:
+                task_id = int(sub_args.lstrip("#"))
+            except ValueError:
+                return f"Invalid task ID: '{sub_args}'. Must be a number."
+
+            if self.task_db.complete_task(task_id):
+                return f"Task #{task_id} marked as completed!"
+            return f"Task #{task_id} not found or was already completed."
+
+        # task delete <id> / rm <id>
+        if sub_cmd in ("delete", "rm", "remove"):
+            if not sub_args:
+                return "Usage: task delete <id> (e.g. 'task delete 1')"
+            try:
+                task_id = int(sub_args.lstrip("#"))
+            except ValueError:
+                return f"Invalid task ID: '{sub_args}'. Must be a number."
+
+            if self.task_db.delete_task(task_id):
+                return f"Task #{task_id} deleted."
+            return f"Task #{task_id} not found."
+
+        # task clear (remove completed tasks)
+        if sub_cmd in ("clear", "cleanup"):
+            cleared = self.task_db.clear_completed_tasks()
+            return f"Cleared {cleared} completed task(s)."
+
+        # Default fallback for unrecognized task subcommand
+        return (
+            f"Unrecognized task action: '{sub_cmd}'.\n"
+            "Supported actions: task add, task list, task done, task delete, task clear"
+        )
+
+    def _handle_reminder_command(self, cmd_key: str, args: str) -> str:
+        """Process 'remind' and 'reminders' subcommands."""
+        if not self.task_db:
+            return "Reminder database is not initialized."
+
+        trimmed = args.strip()
+
+        # 'reminders' or 'reminder list'
+        if cmd_key == "reminders" or (cmd_key == "reminder" and (not trimmed or trimmed.lower().startswith("list"))):
+            reminders = self.task_db.list_reminders()
+            return format_reminders_list(reminders)
+
+        # 'reminder cancel <id>' or 'reminder delete <id>'
+        if trimmed.lower().startswith(("cancel ", "rm ", "delete ")):
+            id_str = trimmed.split(maxsplit=1)[1].strip().lstrip("#")
+            try:
+                rem_id = int(id_str)
+            except ValueError:
+                return f"Invalid reminder ID: '{id_str}'. Must be a number."
+
+            if self.task_db.cancel_reminder(rem_id):
+                return f"Reminder #{rem_id} has been cancelled."
+            return f"Reminder #{rem_id} not found or not in scheduled state."
+
+        # 'remind <when> to <message>'
+        dt, msg, err = parse_reminder_command(trimmed)
+        if err:
+            return err
+        if not dt or not msg:
+            return "Unable to parse reminder time and message. Example: 'remind in 15m to take a break'"
+
+        try:
+            reminder = self.task_db.add_reminder(msg, dt.isoformat())
+            time_display = dt.strftime("%Y-%m-%d %H:%M UTC")
+            return f"Reminder #{reminder.id} scheduled for {time_display}: '{reminder.message}'"
+        except ValueError as exc:
+            return f"Error scheduling reminder: {exc}"
 
     def _is_conversational(self, text: str) -> bool:
         """Detect conversational questions or natural language queries."""

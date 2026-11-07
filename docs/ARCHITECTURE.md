@@ -4,7 +4,7 @@ This document describes the high-level architecture, component boundaries, and r
 
 ## 1. Architectural Overview
 
-AURA is organized into loosely coupled, modular layers designed to keep the user interface separate from core tooling, audio pipelines, AI providers, web search, and safety logic.
+AURA is organized into loosely coupled, modular layers designed to keep the user interface separate from core tooling, audio pipelines, AI providers, web search, background scheduling, and safety logic.
 
 ```
        +-------------------------------------------------------+
@@ -33,13 +33,21 @@ AURA is organized into loosely coupled, modular layers designed to keep the user
                               |
                               v
        +-------------------------------------------------------+
-       |                     Tool Handlers                     |
+       |              Tool & Persistence Handlers              |
        |  - `basic`: time, date, formatted help                |
-       |  - `calculator`: AST-based safe math eval (verbal ok) |
+       |  - `calculator`: AST-based safe math eval             |
        |  - `files`: directory list, type-filtered glob search |
        |  - `tabular`: Pandas CSV & openpyxl Excel inspection  |
        |  - `documents`: safe text read/write & PyMuPDF reader |
        |  - `search`: live web search & grounded AI synthesis  |
+       |  - `tasks`: SQLite task storage & daemon scheduler    |
+       +-------------------------------------------------------+
+                                   |
+                                   v
+       +-------------------------------------------------------+
+       |           Storage & Background Services               |
+       |  - SQLite: `data/aura_tasks.db` (tasks & reminders)   |
+       |  - `ReminderScheduler`: Daemon thread polling due alerts |
        +-------------------------------------------------------+
 ```
 
@@ -50,19 +58,20 @@ AURA is organized into loosely coupled, modular layers designed to keep the user
    - Voice: Push-to-talk trigger (`listen` / `ptt`) captures microphone audio in-memory, transcribes it via `SpeechToTextListener`, and routes the transcription.
 2. **Parsing & Normalization**: The command string is passed to `CommandRouter.execute()`, trimming whitespace and isolating command keywords.
 3. **Allowlist Dispatch**:
-   - If recognized, routes to the local tool handler (`calc`, `files`, `search`, `read`, `write`, `append`, `csv`, `excel`, `pdf`, `voice`).
-   - If `web <query>` or `webask <query>` is entered, routes to `BaseSearchProvider` (DuckDuckGo zero-key default or Tavily), passes results through `sanitize_search_result`, and either prints citations or generates a grounded LLM answer.
-   - If `ask <prompt>` or a natural conversational question is detected, routes to `BaseLLMProvider.generate_response()` (NVIDIA NIM primary, Google Gemini fallback).
-   - If unconfigured, a helpful offline notice is returned directing to `help`.
+   - Local tools: `calc`, `files`, `search`, `read`, `write`, `append`, `csv`, `excel`, `pdf`, `voice`.
+   - Task & Reminders: `task add`, `task list`, `task done`, `task delete`, `remind <when> to <msg>`, `reminders`, `reminder cancel <id>`.
+   - Web Search: `web <query>` (citations and links) or `webask <query>` (grounded LLM synthesis).
+   - Conversational AI: `ask <prompt>` or freeform query dispatched to `BaseLLMProvider`.
 4. **Safety & Bounds Check**:
    - File-based tools validate paths with `validate_workspace_path`, preventing escape from `AURA_WORKSPACE_DIR` (`./data`).
    - Web URLs are verified against an `http`/`https` allowlist, defanging dangerous schemes (`javascript:`, `file:`, `data:`).
    - External search snippets are defanged for prompt injection keywords and wrapped in unverified XML tags for LLM prompts.
-   - Mathematical expressions are parsed into an AST where only safe arithmetic and allowlisted math operations are permitted.
+   - Tasks and reminders undergo title bounding and SQL injection defense via parameterized queries.
 5. **Response Formatting & Vocalization**:
    - Text output is returned to the terminal.
-   - If TTS is enabled (`voice on`), `TextToSpeechEngine` sanitizes formatting (stripping table borders/markdown) and vocalizes the reply.
-6. **Graceful Termination**: `exit`, `quit`, or `bye` cleanly terminates the session.
+   - If TTS is enabled (`voice on`), `TextToSpeechEngine` sanitizes formatting and vocalizes the reply.
+   - Asynchronous reminders trigger a `[REMINDER ALERT]` console banner and spoken TTS announcement.
+6. **Graceful Termination**: `exit`, `quit`, or `bye` cleanly terminates the session and shuts down background daemon threads.
 
 ## 3. Directory Layout
 
@@ -70,9 +79,9 @@ AURA is organized into loosely coupled, modular layers designed to keep the user
 AI_voice_assistant_AURA/
 ├── pyproject.toml              # Build specification & dependencies
 ├── README.md                   # Quickstart, setup, and usage guide
-├── .gitignore                  # VCS ignore definitions (.env excluded)
+├── .gitignore                  # VCS ignore definitions (.env and *.db excluded)
 ├── .env.example                # Sample environment configuration
-├── data/                       # Sandboxed workspace for file operations
+├── data/                       # Sandboxed workspace for file operations & local DB
 │   ├── .gitkeep
 │   ├── sample.csv              # Test tabular file
 │   └── notes.txt               # Test text file
@@ -107,6 +116,13 @@ AI_voice_assistant_AURA/
 │       │   ├── factory.py      # Search provider factory
 │       │   ├── safety.py       # URL validation & prompt injection defense
 │       │   └── tavily.py       # Tavily AI Search REST provider
+│       ├── tasks/              # Stage 6 Tasks & Reminders
+│       │   ├── __init__.py
+│       │   ├── db.py           # SQLite persistence manager
+│       │   ├── formatters.py   # CLI display formatting
+│       │   ├── models.py       # Task & Reminder dataclasses
+│       │   ├── scheduler.py    # Background reminder daemon
+│       │   └── time_parser.py  # Natural time parsing utilities
 │       └── tools/
 │           ├── __init__.py
 │           ├── basic.py        # Date, time, and help
@@ -122,5 +138,6 @@ AI_voice_assistant_AURA/
     ├── test_providers.py      # Online AI provider & mock integration tests
     ├── test_router.py         # Routing & fallback tests
     ├── test_search.py         # Web search, URL safety & injection tests
-    └── test_tabular.py        # CSV & Excel schema tests
+    ├── test_tabular.py        # CSV & Excel schema tests
+    └── test_tasks.py          # Task DB, reminder scheduler & parser tests
 ```

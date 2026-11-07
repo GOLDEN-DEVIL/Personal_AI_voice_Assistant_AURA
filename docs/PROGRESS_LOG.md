@@ -72,11 +72,35 @@ This document tracks completed milestones, branch status, and immediate next ste
   - `web <query>`: Direct web search showing numbered titles, URLs, and summaries.
   - `webask <query>`: Grounded AI search. Synthesizes answers using NVIDIA NIM / Gemini with inline citations `[1]`, `[2]` and attaches source links.
   - Live Web Search status indicator in terminal startup banner ([`src/aura/app.py`](../src/aura/app.py)).
-- **Automated Tests**: 84 unit and security tests passing (19 new search tests).
+- **Automated Tests**: 84 unit and security tests passing.
 
 ---
 
-## Next Milestone: Stage 6 — Tasks and Reminders
-- SQLite persistence schema for tasks and timed reminders.
-- Add scheduling only after the data model and tests are in place.
-- Require confirmation before scheduling external actions or sending notifications.
+### Stage 6: Tasks and Reminders (Completed on `feature/stage6-tasks-reminders`)
+- **SQLite Persistence Engine** ([`src/aura/tasks/db.py`](../src/aura/tasks/db.py), [`src/aura/tasks/models.py`](../src/aura/tasks/models.py)):
+  - Zero-dependency embedded database storing tasks and reminders in `data/aura_tasks.db`.
+  - Atomic transactions, indexed queries, and guaranteed connection closure preventing Windows file-lock contention.
+  - Full CRUD operations with input validation and character bounds.
+- **Natural Time Parsing** ([`src/aura/tasks/time_parser.py`](../src/aura/tasks/time_parser.py)):
+  - Relative intervals (`in 15m`, `in 2h`, `in 30s`, `in 1 day`).
+  - Clock times (`at 15:30`, `at 3pm`, `at 9:30am`) with automatic day roll-over.
+  - Flexible natural reminder commands (`remind in 15m to take a break`, `remind at 17:00 to clock out`).
+- **Background Reminder Scheduler** ([`src/aura/tasks/scheduler.py`](../src/aura/tasks/scheduler.py)):
+  - Non-blocking daemon background worker polling due reminders every 2s.
+  - Atomic status transition (`scheduled` -> `fired`) to prevent duplicate alerts.
+  - Dispatches terminal alerts (`[REMINDER ALERT] <msg>`) and spoken audio via offline TTS when voice is enabled.
+- **CLI & Router Integration** ([`src/aura/router.py`](../src/aura/router.py), [`src/aura/tasks/formatters.py`](../src/aura/tasks/formatters.py)):
+  - `task add <title> [--priority low|med|high] [--due YYYY-MM-DD]`
+  - `task list [--all|--done|--pending]`
+  - `task done <id>`, `task delete <id>`, `task clear`
+  - `remind <when> to <message>`
+  - `reminders` & `reminder cancel <id>`
+  - Live tasks and reminders count in terminal startup banner ([`src/aura/app.py`](../src/aura/app.py)).
+- **Automated Tests**: 101 unit and security tests passing (17 new task and reminder tests).
+
+---
+
+## Next Milestone: Stage 7 — Wake Word Detection
+- Offline wake-word detection engine (e.g. `openWakeWord`).
+- Explicit opt-in activation and visible listening indicators.
+- Immediate pause/stop controls ensuring zero silent listening.

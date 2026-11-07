@@ -12,6 +12,7 @@ from aura.logging_config import setup_logging
 from aura.providers.factory import create_llm_provider
 from aura.router import CommandRouter
 from aura.search.factory import create_search_provider
+from aura.tasks import Reminder, ReminderScheduler, TaskDatabase
 
 
 class AuraApp:
@@ -31,11 +32,26 @@ class AuraApp:
         )
         self.llm = create_llm_provider(self.config)
         self.search = create_search_provider(self.config)
+        db_path = self.config.tasks_db_path or (self.config.workspace_dir / "aura_tasks.db")
+        self.task_db = TaskDatabase(db_path)
+
+        def _on_reminder_alert(reminder: Reminder) -> None:
+            alert_text = f"\n\n[REMINDER ALERT] {reminder.message}\nAURA > "
+            print(alert_text, end="", flush=True)
+            if self.tts.enabled:
+                self.tts.speak(f"Reminder: {reminder.message}")
+
+        self.scheduler = ReminderScheduler(
+            self.task_db,
+            notification_callback=_on_reminder_alert,
+            check_interval_seconds=2.0,
+        )
         self.router = CommandRouter(
             self.config,
             tts_engine=self.tts,
             llm_provider=self.llm,
             search_provider=self.search,
+            task_db=self.task_db,
         )
 
     def print_banner(self) -> None:
@@ -49,6 +65,9 @@ class AuraApp:
 
         search_state = self.search.get_provider_name() if self.search else "DISABLED"
 
+        pending_tasks = len(self.task_db.list_tasks(status="pending"))
+        scheduled_reminders = len(self.task_db.list_reminders(status="scheduled"))
+
         banner = f"""
 ======================================================
   Project AURA - AI Utility & Response Assistant
@@ -59,6 +78,7 @@ class AuraApp:
   Voice PTT  : [{stt_state}]
   Online AI  : [{ai_state}]
   Web Search : [{search_state}]
+  Tasks / Rem: [{pending_tasks} pending / {scheduled_reminders} scheduled]
   Hint       : Type 'help' for commands, 'exit' to quit.
 ------------------------------------------------------
 """
@@ -67,44 +87,48 @@ class AuraApp:
     def run(self) -> None:
         """Start the interactive command loop."""
         self.logger.info("Starting AURA interactive session.")
+        self.scheduler.start()
         self.print_banner()
 
-        while True:
-            try:
-                user_input = input("\nAURA > ")
-            except (KeyboardInterrupt, EOFError):
-                print("\n\nSession terminated by user. Goodbye!")
-                self.logger.info("Session closed via interrupt signal.")
-                break
+        try:
+            while True:
+                try:
+                    user_input = input("\nAURA > ")
+                except (KeyboardInterrupt, EOFError):
+                    print("\n\nSession terminated by user. Goodbye!")
+                    self.logger.info("Session closed via interrupt signal.")
+                    break
 
-            trimmed = user_input.strip()
-            if not trimmed:
-                continue
-
-            # Push-to-talk microphone trigger
-            if trimmed.lower() in ("listen", "ptt", "mic"):
-                transcription, err = self.stt.listen_and_transcribe()
-                if err:
-                    print(f"\n{err}")
-                    if self.tts.enabled:
-                        self.tts.speak("Microphone audio capture was unsuccessful.")
-                    continue
-                if transcription:
-                    print(f"\nYou (Voice) > {transcription}")
-                    user_input = transcription
-                else:
+                trimmed = user_input.strip()
+                if not trimmed:
                     continue
 
-            response, should_exit = self.router.execute(user_input)
-            print(response)
+                # Push-to-talk microphone trigger
+                if trimmed.lower() in ("listen", "ptt", "mic"):
+                    transcription, err = self.stt.listen_and_transcribe()
+                    if err:
+                        print(f"\n{err}")
+                        if self.tts.enabled:
+                            self.tts.speak("Microphone audio capture was unsuccessful.")
+                        continue
+                    if transcription:
+                        print(f"\nYou (Voice) > {transcription}")
+                        user_input = transcription
+                    else:
+                        continue
 
-            # Spoken response if TTS is enabled
-            if self.tts.enabled:
-                self.tts.speak(response)
+                response, should_exit = self.router.execute(user_input)
+                print(response)
 
-            if should_exit:
-                self.logger.info("Session closed normally.")
-                break
+                # Spoken response if TTS is enabled
+                if self.tts.enabled:
+                    self.tts.speak(response)
+
+                if should_exit:
+                    self.logger.info("Session closed normally.")
+                    break
+        finally:
+            self.scheduler.stop()
 
 
 def main() -> int:
