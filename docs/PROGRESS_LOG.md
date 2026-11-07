@@ -76,7 +76,7 @@ This document tracks completed milestones, branch status, and immediate next ste
 
 ---
 
-### Stage 6: Tasks and Reminders (Completed on `feature/stage6-tasks-reminders`)
+### Stage 6: Tasks and Reminders (Merged into `main`)
 - **SQLite Persistence Engine** ([`src/aura/tasks/db.py`](../src/aura/tasks/db.py), [`src/aura/tasks/models.py`](../src/aura/tasks/models.py)):
   - Zero-dependency embedded database storing tasks and reminders in `data/aura_tasks.db`.
   - Atomic transactions, indexed queries, and guaranteed connection closure preventing Windows file-lock contention.
