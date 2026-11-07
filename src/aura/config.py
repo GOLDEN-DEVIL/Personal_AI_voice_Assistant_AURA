@@ -42,6 +42,7 @@ class AuraConfig:
     search_provider: str = "duckduckgo"
     tavily_api_key: Optional[str] = None
     search_max_results: int = 5
+    tasks_db_path: Optional[Path] = None
 
     @classmethod
     def load(cls) -> AuraConfig:
@@ -92,6 +93,13 @@ class AuraConfig:
         # Ensure directory exists or can be accessed safely
         workspace_path.mkdir(parents=True, exist_ok=True)
 
+        # Tasks & Reminders SQLite Database path (Stage 6)
+        env_tasks_db = os.getenv("AURA_TASKS_DB")
+        if env_tasks_db:
+            tasks_db_path = Path(env_tasks_db).expanduser().resolve()
+        else:
+            tasks_db_path = (workspace_path / "aura_tasks.db").resolve()
+
         return cls(
             app_name=app_name,
             version=version,
@@ -108,4 +116,5 @@ class AuraConfig:
             search_provider=search_provider,
             tavily_api_key=tavily_api_key,
             search_max_results=search_max_results,
+            tasks_db_path=tasks_db_path,
         )

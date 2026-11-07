@@ -58,6 +58,7 @@ You will be greeted by the AURA banner:
   Voice PTT  : [READY (type 'listen')]
   Online AI  : [NVIDIA NIM (nvidia/nemotron-3.5-bolt-e4b)]
   Web Search : [DuckDuckGo (Zero-Key)]
+  Tasks / Rem: [0 pending / 0 scheduled]
   Hint       : Type 'help' for commands, 'exit' to quit.
 ------------------------------------------------------
 
@@ -82,6 +83,9 @@ AURA >
 | `csv <filename>` | `csv sample.csv` | Inspect CSV column types, dimensions, and top-5 preview |
 | `excel <file> [sheet]` | `excel sample.xlsx Financials` | Inspect Excel workbook sheets, columns, and previews via openpyxl |
 | `pdf <filename>` | `pdf manual.pdf` | Inspect PDF metadata and extracted text (requires `pymupdf`) |
+| `task [add/list/done/del]` | `task add Prepare slides --priority high` | Create and manage persistent to-do tasks stored in SQLite |
+| `remind <when> to <msg>` | `remind in 15m to take a break` | Schedule a timed reminder with console and spoken TTS alert |
+| `reminders` | `reminders` or `reminder cancel 1` | List scheduled reminders or cancel a reminder |
 | `voice [on/off]` | `voice on` or `voice off` | Toggle spoken audio responses via offline Text-to-Speech (TTS) |
 | `listen` | `listen` | Activate push-to-talk microphone to speak your command |
 | `ask <question>` | `ask what is quantum computing?` | Query NVIDIA NIM conversational AI (requires `NVIDIA_API_KEY`) |
@@ -96,8 +100,9 @@ AURA >
 - **Zero Arbitrary Execution**: AURA never invokes `eval`, `exec`, or unrestricted shell subprocesses.
 - **AST Mathematical Validation**: Expressions are parsed using `ast.parse` with an allowlist of operators and functions.
 - **Sandboxed Workspace**: File inspection and creation are strictly confined to the directory configured via `AURA_WORKSPACE_DIR` (defaults to `./data`). Path traversal (`../`, absolute drive access) is automatically blocked.
+- **Persistent SQLite Task Storage**: Tasks and reminders use parameterized queries (`?`) preventing SQL injection. Database files are excluded from version control via `.gitignore`.
 - **Zero Audio Retention (Privacy First)**: Speech recognition operates purely in-memory on push-to-talk (`listen`). AURA **never** records, streams, or saves microphone audio files to disk.
-- **Prompt Injection Defense & URL Scheme Allowlist**: Web searches validate URLs to only allow `http`/`https` (rejecting `javascript:`, `file:`, `data:`). Untrusted search snippets are defanged for prompt injection attacks and wrapped in sandboxed reference tags.
+- **Prompt Injection Defense & URL Scheme Allowlist**: Web searches validate URLs to only allow `http`/`https`. Untrusted search snippets are defanged for prompt injection attacks and wrapped in sandboxed reference tags.
 - **Overwrite Protection**: The assistant will not silently replace user files without explicit `--overwrite` or `append`.
 - **Graceful Degradation**: Optional dependencies (such as `pyttsx3`, `pyaudio`, `openpyxl`, or `pymupdf`) provide clear setup instructions instead of crashing.
 

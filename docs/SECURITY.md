@@ -43,3 +43,11 @@ Security and privacy are core tenets of Project AURA. This document outlines the
 - **Character Bounding**: Web snippets (max 400 chars) and titles (max 150 chars) are strictly truncated and stripped of raw HTML to prevent buffer overflows or terminal flooding.
 - **Indirect Prompt Injection Neutralization**: External web text is scanned for adversarial prompt-override patterns (e.g., `Ignore previous instructions`, `### System:`, `[INST]`, `you are now in developer mode`). Matching sequences are defanged into unverified quoted tokens (`[defanged: '...']`).
 - **LLM Sandboxing & Context Isolation**: For grounded queries (`webask`), retrieved search excerpts are wrapped in strict `<unverified_external_web_search_results>` XML tags, instructing the AI to treat them exclusively as external reference data and never as executable instructions.
+
+
+### Tasks & Reminders Storage Security (Stage 6)
+- **Embedded SQLite Sandbox**: Task and reminder data is stored strictly in an embedded SQLite file (`data/aura_tasks.db`) within the designated workspace directory. Database files (`*.db`, `*.sqlite`, `*.sqlite3`) are permanently excluded from version control via `.gitignore`.
+- **Zero SQL Injection Risk**: All database queries are executed strictly with parameterized SQL statements (`?` placeholders). Raw string interpolation and dynamic SQL construction are forbidden.
+- **Input Bounds & Character Limits**: Task titles and reminder messages are strictly constrained to 300 characters to prevent buffer and memory abuse.
+- **Atomic Dispatch Guarantee**: Due reminders are transitioned from `scheduled` to `fired` inside an atomic transaction prior to executing alert callbacks, preventing duplicate or re-entrant notifications.
+- **Zero Personal Data or Conversation Logging**: The database exclusively stores explicit user-created tasks and reminders; raw conversational histories, chat transcripts, and model completions are never retained or persisted.
