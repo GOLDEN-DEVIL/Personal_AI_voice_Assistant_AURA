@@ -100,7 +100,7 @@ This document tracks completed milestones, branch status, and immediate next ste
 
 ---
 
-### Stage 7: Wake Word Detection (Completed on `feature/stage7-wake-word`)
+### Stage 7: Wake Word Detection (Merged into `main`)
 - **Wake-Word Detection Engine** ([`src/aura/audio/wakeword.py`](../src/aura/audio/wakeword.py)):
   - Offline wake-word detection engine with state machine (`DISABLED`, `IDLE`, `LISTENING`, `TRIGGERED`, `PAUSED`).
   - Pluggable backend support: `openWakeWord` neural detection if installed, with a zero-dependency `SpeechRecognition` keyword fallback (`"hey aura"` / `"aura"`).

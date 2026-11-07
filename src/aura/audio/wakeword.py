@@ -44,7 +44,7 @@ class WakeWordDetector:
         self.enabled = enabled
         self.state = WakeWordState.IDLE if enabled else WakeWordState.DISABLED
         self.on_state_change = on_state_change
-        self._lock = threading.Lock()
+        self._lock = threading.RLock()
         self._stop_requested = threading.Event()
 
         # Engine identification
