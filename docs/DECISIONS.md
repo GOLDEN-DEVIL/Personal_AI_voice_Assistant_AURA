@@ -87,3 +87,11 @@ This document logs significant architectural and design choices, alternatives co
 - **Context**: Stage 6 requires persistent task tracking and timed reminders without external cloud databases, heavy ORMs, or background daemon installation requirements.
 - **Decision**: Implemented `TaskDatabase` utilizing Python's built-in `sqlite3` module with an embedded database stored inside `data/aura_tasks.db`. Provided strict connection lifecycle management via a context manager to eliminate Windows file-locking issues. Implemented a non-blocking `ReminderScheduler` running on a daemon thread polling due timestamps and executing an atomic status transition before notification dispatch.
 - **Rationale**: Keeps AURA completely self-contained, offline-capable, cross-platform, and fast. Eliminates third-party database daemon dependencies while providing thread-safe CRUD and notifications with TTS integration.
+
+
+---
+
+### Decision 13: Wake-Word Detection with Strict Opt-In Privacy & Transient Memory Buffers (Stage 7)
+- **Context**: Stage 7 introduces wake-word detection ("Hey AURA") to enable hands-free voice interaction without violating the Section 7 privacy rule prohibiting always-on silent background listening or audio retention.
+- **Decision**: Implemented `WakeWordDetector` with `openWakeWord` support and an ambient `SpeechRecognition` phrase matching fallback. Ensured that wake-word listening is **disabled by default**, requiring explicit user opt-in (`wakeword on` or `AURA_WAKE_WORD_ENABLED=true`). Microphone audio is held exclusively in transient RAM buffers for frame scoring and immediately discarded. Provided visible listening banners and automatic pause/resume guards around TTS to prevent acoustic feedback loops.
+- **Rationale**: Complies strictly with zero audio retention principles, prevents silent ambient surveillance, and delivers an intuitive hands-free voice experience with immediate stop controls (`Ctrl+C` or "stop listening").

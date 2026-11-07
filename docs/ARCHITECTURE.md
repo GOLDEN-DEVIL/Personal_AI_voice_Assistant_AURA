@@ -10,7 +10,10 @@ AURA is organized into loosely coupled, modular layers designed to keep the user
        +-------------------------------------------------------+
        |                 User Interface Layer                  |
        |  - CLI REPL (`aura.app`)                              |
-       |  - Audio I/O (`aura.audio`): pyttsx3 TTS & STT Listen |
+       |  - Audio I/O (`aura.audio`):                          |
+       |      * pyttsx3 TTS Voice Output                       |
+       |      * SpeechRecognition Push-to-Talk STT             |
+       |      * WakeWordDetector ("Hey AURA") Hands-Free Loop  |
        +-------------------------------------------------------+
                                    |
                                    v
@@ -55,11 +58,12 @@ AURA is organized into loosely coupled, modular layers designed to keep the user
 
 1. **Input Ingestion**:
    - Keyboard: Interactive loop in `aura.app` prompts (`AURA > `).
-   - Voice: Push-to-talk trigger (`listen` / `ptt`) captures microphone audio in-memory, transcribes it via `SpeechToTextListener`, and routes the transcription.
+   - Push-to-Talk: `listen` / `ptt` captures speech in-memory, transcribes it via `SpeechToTextListener`.
+   - Hands-Free Wake-Word Loop: `listen wake` activates `WakeWordDetector`. When "Hey AURA" is detected, STT captures the following command automatically.
 2. **Parsing & Normalization**: The command string is passed to `CommandRouter.execute()`, trimming whitespace and isolating command keywords.
 3. **Allowlist Dispatch**:
-   - Local tools: `calc`, `files`, `search`, `read`, `write`, `append`, `csv`, `excel`, `pdf`, `voice`.
-   - Task & Reminders: `task add`, `task list`, `task done`, `task delete`, `remind <when> to <msg>`, `reminders`, `reminder cancel <id>`.
+   - Local tools: `calc`, `files`, `search`, `read`, `write`, `append`, `csv`, `excel`, `pdf`, `voice`, `wakeword`.
+   - Task & Reminders: `task add`, `task list`, `task done`, `task delete`, `remind <when> to <msg>`, `reminders`.
    - Web Search: `web <query>` (citations and links) or `webask <query>` (grounded LLM synthesis).
    - Conversational AI: `ask <prompt>` or freeform query dispatched to `BaseLLMProvider`.
 4. **Safety & Bounds Check**:
@@ -67,10 +71,10 @@ AURA is organized into loosely coupled, modular layers designed to keep the user
    - Web URLs are verified against an `http`/`https` allowlist, defanging dangerous schemes (`javascript:`, `file:`, `data:`).
    - External search snippets are defanged for prompt injection keywords and wrapped in unverified XML tags for LLM prompts.
    - Tasks and reminders undergo title bounding and SQL injection defense via parameterized queries.
+   - Wake-word audio buffers are kept strictly in RAM and discarded immediately after scoring (zero audio retention).
 5. **Response Formatting & Vocalization**:
    - Text output is returned to the terminal.
-   - If TTS is enabled (`voice on`), `TextToSpeechEngine` sanitizes formatting and vocalizes the reply.
-   - Asynchronous reminders trigger a `[REMINDER ALERT]` console banner and spoken TTS announcement.
+   - If TTS is enabled (`voice on`), `TextToSpeechEngine` sanitizes formatting and vocalizes the reply. Wake-word detection pauses during speech to suppress acoustic self-triggering feedback loops.
 6. **Graceful Termination**: `exit`, `quit`, or `bye` cleanly terminates the session and shuts down background daemon threads.
 
 ## 3. Directory Layout
@@ -99,10 +103,11 @@ AI_voice_assistant_AURA/
 │       ├── logging_config.py   # Secure structured logging
 │       ├── router.py           # Command routing & allowlist
 │       ├── safety.py           # Path validation & sandbox enforcement
-│       ├── audio/              # Stage 3 Voice I/O
+│       ├── audio/              # Stage 3 Voice I/O & Stage 7 Wake Word
 │       │   ├── __init__.py
 │       │   ├── stt.py          # Push-to-talk Speech Recognition
-│       │   └── tts.py          # Offline Text-to-Speech (pyttsx3)
+│       │   ├── tts.py          # Offline Text-to-Speech (pyttsx3)
+│       │   └── wakeword.py     # Wake-Word Detection Engine ("Hey AURA")
 │       ├── providers/          # Stage 4 Online AI Providers
 │       │   ├── __init__.py
 │       │   ├── base.py         # BaseLLMProvider interface
@@ -139,5 +144,6 @@ AI_voice_assistant_AURA/
     ├── test_router.py         # Routing & fallback tests
     ├── test_search.py         # Web search, URL safety & injection tests
     ├── test_tabular.py        # CSV & Excel schema tests
-    └── test_tasks.py          # Task DB, reminder scheduler & parser tests
+    ├── test_tasks.py          # Task DB, reminder scheduler & parser tests
+    └── test_wakeword.py       # Wake-word engine, states & router tests
 ```

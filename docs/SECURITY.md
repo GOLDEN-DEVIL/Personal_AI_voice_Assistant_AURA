@@ -51,3 +51,11 @@ Security and privacy are core tenets of Project AURA. This document outlines the
 - **Input Bounds & Character Limits**: Task titles and reminder messages are strictly constrained to 300 characters to prevent buffer and memory abuse.
 - **Atomic Dispatch Guarantee**: Due reminders are transitioned from `scheduled` to `fired` inside an atomic transaction prior to executing alert callbacks, preventing duplicate or re-entrant notifications.
 - **Zero Personal Data or Conversation Logging**: The database exclusively stores explicit user-created tasks and reminders; raw conversational histories, chat transcripts, and model completions are never retained or persisted.
+
+
+### Wake-Word Detection Privacy & Safety Safeguards (Stage 7)
+- **Explicit User Opt-In Only**: Wake-word listening is **disabled by default** (`AURA_WAKE_WORD_ENABLED=false`). AURA will never initiate always-on ambient listening silently or without explicit user configuration (`wakeword on` / `listen wake`).
+- **Zero Audio Disk Retention**: Raw microphone audio is processed strictly within transient in-memory ring buffers for frame scoring and immediately discarded. Audio is **never recorded, retained, saved to disk, or transmitted**.
+- **Visible Listening State Indicators**: Clear visual indicators (`[WAKE WORD: ACTIVE - Listening for "Hey AURA"]` and `[WAKE WORD DETECTED]`) are presented in the terminal whenever the microphone is actively scanning.
+- **Immediate Pause & Termination Controls**: Users can stop wake-word listening at any instant using `wakeword off`, saying "stop listening", or pressing `Ctrl+C`.
+- **Acoustic Feedback Suppression**: Wake-word scanning is automatically paused while the assistant synthesizes spoken audio (`tts.speak()`) to prevent the assistant from triggering itself.

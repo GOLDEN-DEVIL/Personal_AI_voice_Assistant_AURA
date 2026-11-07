@@ -56,6 +56,7 @@ You will be greeted by the AURA banner:
   Workspace  : C:\path\to\project\data
   Voice TTS  : [OFF] (use 'voice on' / 'voice off')
   Voice PTT  : [READY (type 'listen')]
+  Wake Word  : [DISABLED (type 'wakeword on')]
   Online AI  : [NVIDIA NIM (nvidia/nemotron-3.5-bolt-e4b)]
   Web Search : [DuckDuckGo (Zero-Key)]
   Tasks / Rem: [0 pending / 0 scheduled]
@@ -88,6 +89,8 @@ AURA >
 | `reminders` | `reminders` or `reminder cancel 1` | List scheduled reminders or cancel a reminder |
 | `voice [on/off]` | `voice on` or `voice off` | Toggle spoken audio responses via offline Text-to-Speech (TTS) |
 | `listen` | `listen` | Activate push-to-talk microphone to speak your command |
+| `listen wake` | `listen wake` | Activate hands-free continuous voice loop ("Hey AURA") |
+| `wakeword [on/off/status]` | `wakeword on` or `wakeword status` | Toggle or inspect wake-word detection engine and threshold |
 | `ask <question>` | `ask what is quantum computing?` | Query NVIDIA NIM conversational AI (requires `NVIDIA_API_KEY`) |
 | `web <query>` | `web latest space missions` | Search live web and display cited sources, titles, and links |
 | `webask <query>` | `webask who won the 2024 Nobel Prize in Physics?` | Search live web and synthesize grounded answer with source citations |
@@ -100,8 +103,9 @@ AURA >
 - **Zero Arbitrary Execution**: AURA never invokes `eval`, `exec`, or unrestricted shell subprocesses.
 - **AST Mathematical Validation**: Expressions are parsed using `ast.parse` with an allowlist of operators and functions.
 - **Sandboxed Workspace**: File inspection and creation are strictly confined to the directory configured via `AURA_WORKSPACE_DIR` (defaults to `./data`). Path traversal (`../`, absolute drive access) is automatically blocked.
+- **Zero Audio Retention (Privacy First)**: Microphone audio (both push-to-talk and wake-word scanning) operates purely within transient in-memory ring buffers. AURA **never** records, streams, or saves microphone audio files to disk.
+- **Explicit Opt-In Wake-Word Detection**: Wake-word scanning is disabled by default and never runs always-on silently. Visible listening indicators are shown during operation, and scanning pauses during speech synthesis to prevent acoustic feedback loops.
 - **Persistent SQLite Task Storage**: Tasks and reminders use parameterized queries (`?`) preventing SQL injection. Database files are excluded from version control via `.gitignore`.
-- **Zero Audio Retention (Privacy First)**: Speech recognition operates purely in-memory on push-to-talk (`listen`). AURA **never** records, streams, or saves microphone audio files to disk.
 - **Prompt Injection Defense & URL Scheme Allowlist**: Web searches validate URLs to only allow `http`/`https`. Untrusted search snippets are defanged for prompt injection attacks and wrapped in sandboxed reference tags.
 - **Overwrite Protection**: The assistant will not silently replace user files without explicit `--overwrite` or `append`.
 - **Graceful Degradation**: Optional dependencies (such as `pyttsx3`, `pyaudio`, `openpyxl`, or `pymupdf`) provide clear setup instructions instead of crashing.
