@@ -128,6 +128,12 @@ AI_voice_assistant_AURA/
 │       │   ├── models.py       # Task & Reminder dataclasses
 │       │   ├── scheduler.py    # Background reminder daemon
 │       │   └── time_parser.py  # Natural time parsing utilities
+│       ├── memory/             # Stage 8 Persistent Memory & Context
+│       │   ├── __init__.py
+│       │   ├── context.py      # Ephemeral in-memory session dialogue ring buffer
+│       │   ├── formatters.py   # Memory table display & LLM prompt injection formatter
+│       │   ├── models.py       # MemoryItem & DialogueTurn dataclasses
+│       │   └── store.py        # SQLite persistence manager (aura_memory.db)
 │       └── tools/
 │           ├── __init__.py
 │           ├── basic.py        # Date, time, and help
@@ -140,6 +146,7 @@ AI_voice_assistant_AURA/
     ├── test_calculator.py     # Math & verbal expression tests
     ├── test_documents.py      # PDF & text file read/write tests
     ├── test_files.py          # Workspace file search & sandbox tests
+    ├── test_memory.py         # Memory CRUD, session context & prompt injection tests
     ├── test_providers.py      # Online AI provider & mock integration tests
     ├── test_router.py         # Routing & fallback tests
     ├── test_search.py         # Web search, URL safety & injection tests

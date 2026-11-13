@@ -10,6 +10,7 @@ from aura.audio.tts import TextToSpeechEngine
 from aura.audio.wakeword import WakeWordDetector, WakeWordState
 from aura.config import AuraConfig
 from aura.logging_config import setup_logging
+from aura.memory import ConversationContext, MemoryStore
 from aura.providers.factory import create_llm_provider
 from aura.router import CommandRouter
 from aura.search.factory import create_search_provider
@@ -41,6 +42,13 @@ class AuraApp:
         db_path = self.config.tasks_db_path or (self.config.workspace_dir / "aura_tasks.db")
         self.task_db = TaskDatabase(db_path)
 
+        # Persistent Memory and Session Context (Stage 8)
+        mem_path = getattr(self.config, "memory_db_path", None) or (self.config.workspace_dir / "aura_memory.db")
+        mem_enabled = getattr(self.config, "memory_enabled", False)
+        self.memory = MemoryStore(mem_path, enabled=mem_enabled)
+        ctx_turns = getattr(self.config, "context_max_turns", 6)
+        self.context = ConversationContext(max_turns=ctx_turns)
+
         def _on_reminder_alert(reminder: Reminder) -> None:
             alert_text = f"\n\n[REMINDER ALERT] {reminder.message}\nAURA > "
             print(alert_text, end="", flush=True)
@@ -63,10 +71,12 @@ class AuraApp:
             search_provider=self.search,
             task_db=self.task_db,
             wakeword_detector=self.wakeword,
+            memory_store=self.memory,
+            conversation_context=self.context,
         )
 
     def print_banner(self) -> None:
-        """Display startup information, workspace, voice, AI, search, and wake-word status."""
+        """Display startup information, workspace, voice, AI, search, wake-word, and memory status."""
         tts_state = "ON" if self.tts.enabled else "OFF"
         stt_state = "READY (type 'listen')" if self.stt.available else "UNAVAILABLE"
         if self.llm and self.llm.is_available():
@@ -81,6 +91,12 @@ class AuraApp:
         else:
             wake_state = "DISABLED (type 'wakeword on')"
 
+        if self.memory and self.memory.is_enabled():
+            mem_count = self.memory.get_count()
+            memory_state = f"ENABLED ({mem_count} facts)"
+        else:
+            memory_state = "DISABLED (type 'memory on')"
+
         pending_tasks = len(self.task_db.list_tasks(status="pending"))
         scheduled_reminders = len(self.task_db.list_reminders(status="scheduled"))
 
@@ -93,6 +109,7 @@ class AuraApp:
   Voice TTS  : [{tts_state}] (use 'voice on' / 'voice off')
   Voice PTT  : [{stt_state}]
   Wake Word  : [{wake_state}]
+  Memory     : [{memory_state}]
   Online AI  : [{ai_state}]
   Web Search : [{search_state}]
   Tasks / Rem: [{pending_tasks} pending / {scheduled_reminders} scheduled]

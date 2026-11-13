@@ -121,7 +121,37 @@ This document tracks completed milestones, branch status, and immediate next ste
 
 ---
 
-## Next Milestone: Stage 8 — Memory
-- Opt-in persistent memory with view, edit, and delete controls.
-- Clear separation between short-term conversational context and long-term saved facts.
-- Explicit user confirmation before saving, updating, or wiping memory records.
+### Stage 8: Persistent Memory & Dialogue Context (Completed on `feature/stage8-memory`)
+- **Long-Term Memory Store** ([`src/aura/memory/store.py`](../src/aura/memory/store.py), [`src/aura/memory/models.py`](../src/aura/memory/models.py)):
+  - Dedicated SQLite storage in `data/aura_memory.db` for persistent user facts, preferences, and notes.
+  - Complete CRUD operations: `add_memory`, `list_memories`, `search_memories`, `get_memory`, `update_memory`, `delete_memory`, `clear_memories`.
+  - Strict input validation and length bounds (max 500 chars/fact, max 500 total memories).
+  - Context-managed connection pool guaranteeing clean connection closure to prevent Windows file locks.
+- **Short-Term Conversational Context** ([`src/aura/memory/context.py`](../src/aura/memory/context.py)):
+  - In-memory ring buffer holding the most recent $N$ dialogue turns (default 6 turns).
+  - Strict privacy rule: **Volatile RAM only, zero disk retention**. Never written to SQLite or file storage.
+  - Automatically wiped upon session termination or on explicit `memory session clear`.
+- **AI Prompt Augmentation & Injection Security** ([`src/aura/memory/formatters.py`](../src/aura/memory/formatters.py)):
+  - Safely injects stored facts and recent dialogue history into `ask` and conversational fallback prompts when enabled.
+  - Sanitizes user memory content before prompt insertion, neutralizing prompt injection vectors (`ignore previous instructions`, etc.).
+  - Bounded prompt augmentation token footprint (max 1500 chars).
+- **Router & CLI Commands** ([`src/aura/router.py`](../src/aura/router.py)):
+  - `remember <fact>` / `memory remember <fact> [--category <cat>]`: Save a fact.
+  - `memory list [--category <cat>]`: List stored facts.
+  - `memory search <query>`: Search stored facts.
+  - `memory update <id> <new_text>`: Edit a stored fact.
+  - `memory forget <id>` / `forget <id>`: Delete an individual fact.
+  - `memory clear [--force]`: Wipe all facts with destructive confirmation requirement.
+  - `memory session [clear]`: Inspect or wipe ephemeral dialogue turns.
+  - `memory inject [on|off]`: Toggle auto-injection into AI prompts.
+  - `memory on` / `memory off`: Toggle memory subsystem.
+  - `memory status`: Comprehensive status report.
+  - Terminal startup banner indicates live memory status.
+- **Automated Tests**: 121 unit and security tests passing (10 new memory tests).
+
+---
+
+## Next Milestone: Stage 9 — Safe Application & Website Control
+- Platform-aware application launcher with strict allowlist.
+- Safe browser URL opening with scheme and domain validation.
+- Zero arbitrary shell command execution.

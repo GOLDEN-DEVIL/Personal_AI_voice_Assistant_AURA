@@ -95,3 +95,14 @@ This document logs significant architectural and design choices, alternatives co
 - **Context**: Stage 7 introduces wake-word detection ("Hey AURA") to enable hands-free voice interaction without violating the Section 7 privacy rule prohibiting always-on silent background listening or audio retention.
 - **Decision**: Implemented `WakeWordDetector` with `openWakeWord` support and an ambient `SpeechRecognition` phrase matching fallback. Ensured that wake-word listening is **disabled by default**, requiring explicit user opt-in (`wakeword on` or `AURA_WAKE_WORD_ENABLED=true`). Microphone audio is held exclusively in transient RAM buffers for frame scoring and immediately discarded. Provided visible listening banners and automatic pause/resume guards around TTS to prevent acoustic feedback loops.
 - **Rationale**: Complies strictly with zero audio retention principles, prevents silent ambient surveillance, and delivers an intuitive hands-free voice experience with immediate stop controls (`Ctrl+C` or "stop listening").
+
+
+---
+
+### Decision 14: Clear Separation Between Persistent Memory and Volatile Conversation Context (Stage 8)
+- **Context**: Stage 8 requires memory capabilities for personalization and conversational coherence. Section 7 rules mandate that conversation history and personal memory must never be stored unless the user explicitly opts in, and destructive actions must require confirmation.
+- **Decision**: Architected two distinct memory layers:
+  1. **Persistent Long-Term Memory (`MemoryStore`)**: Stored in a local embedded SQLite database (`data/aura_memory.db`) with parameterized queries, character bounds (500 chars/fact, 500 max facts), and strict opt-in defaults (`AURA_MEMORY_ENABLED=false`). Provided full user CRUD controls, keyword search, and required `--force` confirmation for bulk memory wipe operations (`memory clear`).
+  2. **Short-Term Session Context (`ConversationContext`)**: Managed strictly in volatile RAM as a bounded ring buffer (last $N$ dialogue turns). Never written to disk; wiped upon session termination or on `memory session clear`.
+  3. **Prompt Augmentation & Defense**: Formatted memories into structured blocks for AI prompts, neutralizing prompt injection directives before LLM forwarding, and allowing the user to toggle injection at any time via `memory inject on/off`.
+- **Rationale**: Respects user privacy and autonomy, prevents disk accumulation of sensitive dialogue, and shields the LLM against malicious prompt injection from stored facts.
