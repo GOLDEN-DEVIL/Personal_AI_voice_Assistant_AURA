@@ -121,7 +121,7 @@ This document tracks completed milestones, branch status, and immediate next ste
 
 ---
 
-### Stage 8: Persistent Memory & Dialogue Context (Completed on `feature/stage8-memory`)
+### Stage 8: Persistent Memory & Dialogue Context (Merged into `main`)
 - **Long-Term Memory Store** ([`src/aura/memory/store.py`](../src/aura/memory/store.py), [`src/aura/memory/models.py`](../src/aura/memory/models.py)):
   - Dedicated SQLite storage in `data/aura_memory.db` for persistent user facts, preferences, and notes.
   - Complete CRUD operations: `add_memory`, `list_memories`, `search_memories`, `get_memory`, `update_memory`, `delete_memory`, `clear_memories`.
