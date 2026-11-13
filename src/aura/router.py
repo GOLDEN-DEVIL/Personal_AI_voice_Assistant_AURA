@@ -14,6 +14,14 @@ from aura.search.safety import (
     format_search_context_for_llm,
     format_search_results_for_display,
 )
+from aura.memory import (
+    ConversationContext,
+    MemoryStore,
+    format_memory_context_for_llm,
+    format_memory_list,
+    format_memory_status,
+    format_session_turns,
+)
 from aura.tasks.db import TaskDatabase
 from aura.tasks.formatters import format_reminders_list, format_tasks_list
 from aura.tasks.time_parser import parse_reminder_command
@@ -35,6 +43,8 @@ class CommandRouter:
         search_provider: Optional[BaseSearchProvider] = None,
         task_db: Optional[TaskDatabase] = None,
         wakeword_detector: Optional[WakeWordDetector] = None,
+        memory_store: Optional[MemoryStore] = None,
+        conversation_context: Optional[ConversationContext] = None,
     ) -> None:
         self.config = config
         self.tts = tts_engine
@@ -42,6 +52,9 @@ class CommandRouter:
         self.search = search_provider
         self.task_db = task_db
         self.wakeword = wakeword_detector
+        self.memory = memory_store
+        self.context = conversation_context
+        self.memory_auto_inject = getattr(config, "memory_auto_inject", True)
         self.command_help: dict[str, str] = {
             "help": "Display this help menu with all available commands",
             "time": "Show current local time and timezone",
@@ -58,6 +71,8 @@ class CommandRouter:
             "task [add|list|done|delete]": "Manage persistent tasks (e.g. 'task add Finish slides --priority high')",
             "remind <when> to <msg>": "Schedule a timed reminder (e.g. 'remind in 15m to take a break')",
             "reminders": "List scheduled reminders or use 'reminder cancel <id>'",
+            "remember <fact>": "Save a personal fact or preference to persistent memory (Stage 8)",
+            "memory [list|status|clear]": "Manage persistent memories and short-term dialogue context (Stage 8)",
             "voice [on/off]": "Toggle or check spoken audio responses (Text-to-Speech)",
             "listen": "Activate push-to-talk microphone to speak your command",
             "wakeword [on/off/status]": "Toggle wake-word detection ('Hey AURA') with visible indicator",
@@ -274,6 +289,16 @@ class CommandRouter:
             else:
                 return "Usage: wakeword [on|off|status]", False
 
+        # Memory and Recall Commands (Stage 8)
+        if command_key in ("memory", "mem", "memories"):
+            return self._handle_memory_command(args)
+
+        if command_key in ("remember", "recall"):
+            return self._handle_remember_command(args)
+
+        if command_key in ("forget",):
+            return self._handle_forget_command(args)
+
         # Web Search Command (Stage 5)
         if command_key in ("web", "websearch", "google", "ddg"):
             if not args:
@@ -320,7 +345,10 @@ class CommandRouter:
             if not args:
                 return "Usage: ask <your question or prompt> (e.g. 'ask explain photosynthesis in 2 sentences')", False
             if self.llm:
-                return self.llm.generate_response(args), False
+                prompt_to_send = self._augment_prompt_with_memory(args)
+                resp = self.llm.generate_response(prompt_to_send)
+                self._record_dialogue_turn(args, resp)
+                return resp, False
             return (
                 "AI Notice: Online AI provider is not enabled.\n"
                 "Please configure NVIDIA_API_KEY in your .env file to enable AI answers.",
@@ -330,7 +358,10 @@ class CommandRouter:
         # Conversational / AI fallback check
         if self._is_conversational(trimmed):
             if self.llm and self.llm.is_available():
-                return self.llm.generate_response(trimmed), False
+                prompt_to_send = self._augment_prompt_with_memory(trimmed)
+                resp = self.llm.generate_response(prompt_to_send)
+                self._record_dialogue_turn(trimmed, resp)
+                return resp, False
             return (
                 "AURA is currently operating in local-only mode.\n"
                 "To enable online conversational AI, add your API key to .env:\n"
@@ -500,3 +531,195 @@ class CommandRouter:
             r"^(are you|do you have|what's your name|who made you)\b",
         ]
         return any(re.search(pat, lowered) for pat in conversational_patterns)
+
+    # -----------------------------------------------------------------------
+    # Memory Handlers & Context Injection (Stage 8)
+    # -----------------------------------------------------------------------
+
+    def _handle_memory_command(self, args: str) -> Tuple[str, bool]:
+        """Process 'memory' commands for persistent storage and session context."""
+        if not self.memory:
+            return "Memory store is not initialized in this session.", False
+
+        trimmed = args.strip()
+        if not trimmed or trimmed.lower() in ("status", "info"):
+            return format_memory_status(self.memory, self.context, self.memory_auto_inject), False
+
+        parts = trimmed.split(maxsplit=1)
+        sub_cmd = parts[0].lower()
+        sub_args = parts[1].strip() if len(parts) > 1 else ""
+
+        # memory on / enable
+        if sub_cmd in ("on", "enable", "start", "1"):
+            self.memory.set_enabled(True)
+            return (
+                "Persistent memory is now ENABLED.\n"
+                "AURA can now save facts, preferences, and augment AI prompts with your saved context.\n"
+                "Use 'remember <fact>' to save a fact.",
+                False,
+            )
+
+        # memory off / disable
+        if sub_cmd in ("off", "disable", "stop", "0"):
+            self.memory.set_enabled(False)
+            return (
+                "Persistent memory is now DISABLED.\n"
+                "No memories will be saved or read, and memory context will not be injected into AI prompts.",
+                False,
+            )
+
+        # memory remember <fact> / memory save <fact> / memory add <fact>
+        if sub_cmd in ("remember", "save", "add"):
+            return self._handle_remember_command(sub_args)
+
+        # memory list / memory show / memory all
+        if sub_cmd in ("list", "show", "all", "ls"):
+            category = None
+            if sub_args.startswith(("--category", "-c")):
+                cat_parts = sub_args.split(maxsplit=1)
+                if len(cat_parts) > 1:
+                    category = cat_parts[1].strip()
+            memories = self.memory.list_memories(category=category)
+            title = f"Stored Memories (Category: {category})" if category else "Stored Memories"
+            return format_memory_list(memories, title=title), False
+
+        # memory search <query> / memory find <query>
+        if sub_cmd in ("search", "find"):
+            if not sub_args:
+                return "Usage: memory search <query> (e.g. 'memory search coffee')", False
+            memories = self.memory.search_memories(sub_args)
+            return format_memory_list(memories, title=f"Search Results for '{sub_args}'"), False
+
+        # memory forget <id> / memory delete <id> / memory rm <id>
+        if sub_cmd in ("forget", "delete", "rm", "remove"):
+            return self._handle_forget_command(sub_args)
+
+        # memory update <id> <new_content> / memory edit <id> <new_content>
+        if sub_cmd in ("update", "edit"):
+            if not sub_args:
+                return "Usage: memory update <id> <new fact content>", False
+            id_parts = sub_args.split(maxsplit=1)
+            try:
+                mem_id = int(id_parts[0].lstrip("#"))
+            except ValueError:
+                return f"Invalid memory ID: '{id_parts[0]}'. Must be a number.", False
+            if len(id_parts) < 2 or not id_parts[1].strip():
+                return "Error: New memory content cannot be empty.", False
+            try:
+                updated = self.memory.update_memory(mem_id, id_parts[1].strip())
+                if updated:
+                    return f"Memory fact #{mem_id} updated: '{updated.content}'", False
+                return f"Memory fact #{mem_id} not found.", False
+            except ValueError as exc:
+                return f"Error updating memory: {exc}", False
+
+        # memory clear [--force|-y]
+        if sub_cmd in ("clear", "wipe", "reset"):
+            if sub_args.lower() in ("--force", "-f", "-y", "--confirm"):
+                count = self.memory.clear_memories()
+                return f"Cleared all {count} persistent memory fact(s).", False
+            return (
+                "WARNING: This will permanently delete ALL stored memories.\n"
+                "To confirm, run: 'memory clear --force'",
+                False,
+            )
+
+        # memory session [clear]
+        if sub_cmd == "session":
+            if not self.context:
+                return "Session conversation context is not active.", False
+            if sub_args.lower() in ("clear", "reset", "wipe"):
+                count = self.context.clear()
+                return f"Cleared {count} session dialogue turn(s) from volatile memory.", False
+            return format_session_turns(self.context.get_recent_turns()), False
+
+        # memory inject [on|off]
+        if sub_cmd in ("inject", "autoinject"):
+            if sub_args.lower() in ("on", "1", "true", "enable"):
+                self.memory_auto_inject = True
+                return "Memory auto-injection into AI prompts is now ON.", False
+            elif sub_args.lower() in ("off", "0", "false", "disable"):
+                self.memory_auto_inject = False
+                return "Memory auto-injection into AI prompts is now OFF.", False
+            else:
+                curr = "ON" if self.memory_auto_inject else "OFF"
+                return f"Memory auto-injection is currently {curr}. Use 'memory inject on' or 'memory inject off'.", False
+
+        return (
+            f"Unrecognized memory action: '{sub_cmd}'.\n"
+            "Supported actions: memory remember <fact>, memory list, memory search <term>, "
+            "memory forget <id>, memory update <id> <text>, memory clear [--force], "
+            "memory session [clear], memory inject [on|off], memory on, memory off, memory status",
+            False,
+        )
+
+    def _handle_remember_command(self, args: str) -> Tuple[str, bool]:
+        """Save a new memory fact."""
+        if not self.memory:
+            return "Memory store is not initialized in this session.", False
+        if not self.memory.is_enabled():
+            return (
+                "Persistent memory is currently DISABLED (opt-in requirement).\n"
+                "Type 'memory on' to enable memory storage.",
+                False,
+            )
+
+        trimmed = args.strip()
+        if not trimmed:
+            return "Usage: remember <fact> (e.g. 'remember my favorite editor is VS Code')", False
+
+        # Check for optional --category or -c
+        category = "general"
+        content = trimmed
+        if " --category " in trimmed:
+            content, cat_part = trimmed.split(" --category ", maxsplit=1)
+            category = cat_part.strip()
+        elif " -c " in trimmed:
+            content, cat_part = trimmed.split(" -c ", maxsplit=1)
+            category = cat_part.strip()
+
+        try:
+            item = self.memory.add_memory(content, category=category)
+            return f"Memory saved [#{item.id}] (category: {item.category}): '{item.content}'", False
+        except ValueError as exc:
+            return f"Error saving memory: {exc}", False
+
+    def _handle_forget_command(self, args: str) -> Tuple[str, bool]:
+        """Delete a memory fact by ID."""
+        if not self.memory:
+            return "Memory store is not initialized in this session.", False
+
+        trimmed = args.strip().lstrip("#")
+        if not trimmed:
+            return "Usage: forget <id> or memory forget <id> (e.g. 'forget 1')", False
+
+        try:
+            mem_id = int(trimmed)
+        except ValueError:
+            return f"Invalid memory ID: '{trimmed}'. Must be a number.", False
+
+        if self.memory.delete_memory(mem_id):
+            return f"Memory fact #{mem_id} has been forgotten.", False
+        return f"Memory fact #{mem_id} not found.", False
+
+    def _augment_prompt_with_memory(self, prompt: str) -> str:
+        """Augment user prompt with persistent memory and session context if enabled."""
+        memories = []
+        if self.memory and self.memory.is_enabled() and self.memory_auto_inject:
+            memories = self.memory.list_memories(limit=8)
+
+        turns = []
+        if self.context and self.context.get_turn_count() > 0:
+            turns = self.context.get_recent_turns()
+
+        ctx = format_memory_context_for_llm(memories, turns)
+        if not ctx:
+            return prompt
+
+        return f"{ctx}\n\nCurrent User Query: {prompt}"
+
+    def _record_dialogue_turn(self, query: str, response: str) -> None:
+        """Record an interaction turn in ephemeral session memory."""
+        if self.context:
+            self.context.add_turn(query, response)
+

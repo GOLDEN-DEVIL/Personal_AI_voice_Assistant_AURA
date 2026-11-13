@@ -57,6 +57,7 @@ You will be greeted by the AURA banner:
   Voice TTS  : [OFF] (use 'voice on' / 'voice off')
   Voice PTT  : [READY (type 'listen')]
   Wake Word  : [DISABLED (type 'wakeword on')]
+  Memory     : [DISABLED (type 'memory on')]
   Online AI  : [NVIDIA NIM (nvidia/nemotron-3.5-bolt-e4b)]
   Web Search : [DuckDuckGo (Zero-Key)]
   Tasks / Rem: [0 pending / 0 scheduled]
@@ -91,6 +92,10 @@ AURA >
 | `listen` | `listen` | Activate push-to-talk microphone to speak your command |
 | `listen wake` | `listen wake` | Activate hands-free continuous voice loop ("Hey AURA") |
 | `wakeword [on/off/status]` | `wakeword on` or `wakeword status` | Toggle or inspect wake-word detection engine and threshold |
+| `remember <fact>` | `remember my favorite editor is VS Code` | Save a personal fact or preference to persistent memory (Stage 8) |
+| `memory [list/status/clear]` | `memory list` or `memory clear --force` | View, search, update, or wipe persistent memories (Stage 8) |
+| `memory session [clear]` | `memory session` or `memory session clear` | View or clear short-term ephemeral conversation context (Stage 8) |
+| `memory inject [on/off]` | `memory inject on` or `memory inject off` | Toggle memory context auto-injection into AI prompts (Stage 8) |
 | `ask <question>` | `ask what is quantum computing?` | Query NVIDIA NIM conversational AI (requires `NVIDIA_API_KEY`) |
 | `web <query>` | `web latest space missions` | Search live web and display cited sources, titles, and links |
 | `webask <query>` | `webask who won the 2024 Nobel Prize in Physics?` | Search live web and synthesize grounded answer with source citations |
@@ -106,6 +111,7 @@ AURA >
 - **Zero Audio Retention (Privacy First)**: Microphone audio (both push-to-talk and wake-word scanning) operates purely within transient in-memory ring buffers. AURA **never** records, streams, or saves microphone audio files to disk.
 - **Explicit Opt-In Wake-Word Detection**: Wake-word scanning is disabled by default and never runs always-on silently. Visible listening indicators are shown during operation, and scanning pauses during speech synthesis to prevent acoustic feedback loops.
 - **Persistent SQLite Task Storage**: Tasks and reminders use parameterized queries (`?`) preventing SQL injection. Database files are excluded from version control via `.gitignore`.
+- **Opt-In Persistent Memory & Ephemeral Dialogue Context**: Long-term memories are stored in `data/aura_memory.db` with strict opt-in defaults (`AURA_MEMORY_ENABLED=false`). Short-term dialogue context is kept strictly in volatile RAM and is never written to disk. Destructive memory wipes require explicit `--force` confirmation, and memories injected into AI prompts are sanitized against indirect prompt injection.
 - **Prompt Injection Defense & URL Scheme Allowlist**: Web searches validate URLs to only allow `http`/`https`. Untrusted search snippets are defanged for prompt injection attacks and wrapped in sandboxed reference tags.
 - **Overwrite Protection**: The assistant will not silently replace user files without explicit `--overwrite` or `append`.
 - **Graceful Degradation**: Optional dependencies (such as `pyttsx3`, `pyaudio`, `openpyxl`, or `pymupdf`) provide clear setup instructions instead of crashing.

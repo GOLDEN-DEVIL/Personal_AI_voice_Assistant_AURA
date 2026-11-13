@@ -46,6 +46,10 @@ class AuraConfig:
     wakeword_enabled: bool = False
     wakeword_model: str = "hey aura"
     wakeword_threshold: float = 0.5
+    memory_enabled: bool = False
+    memory_db_path: Optional[Path] = None
+    memory_auto_inject: bool = True
+    context_max_turns: int = 6
 
     @classmethod
     def load(cls) -> AuraConfig:
@@ -111,6 +115,19 @@ class AuraConfig:
         except ValueError:
             wakeword_threshold = 0.5
 
+        # Memory configuration (Stage 8)
+        memory_enabled = os.getenv("AURA_MEMORY_ENABLED", "false").lower() in ("true", "1", "yes")
+        memory_auto_inject = os.getenv("AURA_MEMORY_AUTO_INJECT", "true").lower() in ("true", "1", "yes")
+        env_memory_db = os.getenv("AURA_MEMORY_DB")
+        if env_memory_db:
+            memory_db_path = Path(env_memory_db).expanduser().resolve()
+        else:
+            memory_db_path = (workspace_path / "aura_memory.db").resolve()
+        try:
+            context_max_turns = int(os.getenv("AURA_CONTEXT_MAX_TURNS", "6"))
+        except ValueError:
+            context_max_turns = 6
+
         return cls(
             app_name=app_name,
             version=version,
@@ -131,4 +148,8 @@ class AuraConfig:
             wakeword_enabled=wakeword_enabled,
             wakeword_model=wakeword_model,
             wakeword_threshold=wakeword_threshold,
+            memory_enabled=memory_enabled,
+            memory_db_path=memory_db_path,
+            memory_auto_inject=memory_auto_inject,
+            context_max_turns=context_max_turns,
         )

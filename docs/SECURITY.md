@@ -59,3 +59,13 @@ Security and privacy are core tenets of Project AURA. This document outlines the
 - **Visible Listening State Indicators**: Clear visual indicators (`[WAKE WORD: ACTIVE - Listening for "Hey AURA"]` and `[WAKE WORD DETECTED]`) are presented in the terminal whenever the microphone is actively scanning.
 - **Immediate Pause & Termination Controls**: Users can stop wake-word listening at any instant using `wakeword off`, saying "stop listening", or pressing `Ctrl+C`.
 - **Acoustic Feedback Suppression**: Wake-word scanning is automatically paused while the assistant synthesizes spoken audio (`tts.speak()`) to prevent the assistant from triggering itself.
+
+
+### Memory & Dialogue Context Security Boundaries (Stage 8)
+- **Strict Opt-In Requirement**: Persistent memory is **disabled by default** (`AURA_MEMORY_ENABLED=false`). Personal facts, preferences, and user profile data are never stored without explicit user activation (`memory on`).
+- **Clear Separation of Short-Term Context & Long-Term Facts**:
+  - *Short-Term Session Context*: Managed strictly in volatile RAM as an in-memory ring buffer. Automatically wiped upon session exit or explicit command (`memory session clear`). Never written to SQLite or disk.
+  - *Long-Term Persistent Facts*: Stored strictly via parameterized SQL in `data/aura_memory.db`. Fully inspectable, searchable, editable, and deletable by the user at all times.
+- **Destructive Action Confirmation Guardrails**: Bulk deletion (`memory clear`) requires an explicit `--force` confirmation flag. Simple unconfirmed invocations display a warning prompt and abort without deleting data.
+- **Prompt Injection Defense on Memory Content**: Memory facts and dialogue turns injected into LLM contexts are sanitized via `sanitize_for_prompt`, neutralizing adversarial prompt override attempts (`ignore previous instructions`, `you are now`, triple backtick escapes).
+- **User Control over AI Injection**: The user can disable memory injection into AI prompts at any time via `memory inject off` while keeping their saved facts intact.
